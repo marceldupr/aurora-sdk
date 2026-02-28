@@ -26,6 +26,9 @@ jobs:
           registry-url: "https://registry.npmjs.org"
           cache: "pnpm"
 
+      # Trusted publishing requires npm 11.5.1+
+      - run: npm install -g npm@11
+
       - run: pnpm install
 
       - run: pnpm run build
