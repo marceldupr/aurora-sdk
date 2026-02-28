@@ -6,6 +6,11 @@ Node.js SDK for Aurora Studio. Connect custom front-ends and storefronts to your
 
 [**Sign up for Aurora**](https://aurora.mandeville.digital) — currently in beta testing and free.
 
+## Changelog
+
+- **0.1.1** — CI/CD trusted publishing setup
+- **0.1.0** — Initial release
+
 ## Install
 
 ```bash
