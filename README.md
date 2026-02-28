@@ -2,6 +2,10 @@
 
 Node.js SDK for Aurora Studio. Connect custom front-ends and storefronts to your Aurora data via the V1 API.
 
+**Aurora** is an all-in-one, no-code platform for stores, marketplaces, CRMs, and more. Design your data, generate your app, automate workflows. Ship in hours, not months.
+
+[**Sign up for Aurora**](https://aurora.mandeville.digital) — currently in beta testing and free.
+
 ## Install
 
 ```bash
