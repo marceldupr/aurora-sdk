@@ -8,7 +8,8 @@ Node.js SDK for Aurora Studio. Connect custom front-ends and storefronts to your
 
 ## Changelog
 
-- **0.1.1** — CI/CD trusted publishing setup
+- **0.1.2** — Trusted publishing (OIDC) configured
+- **0.1.1** — CI/CD setup
 - **0.1.0** — Initial release
 
 ## Install
