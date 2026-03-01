@@ -10,6 +10,7 @@ Node.js SDK for Aurora Studio. Connect custom front-ends and storefronts to your
 
 ## Changelog
 
+- **0.2.2** — **Provision schema:** `client.provisionSchema(schema, { base?: "marketplace-base" | "base" })` for template-first provisioning. Call on first run so your app provisions its tables (and optional reports/workflows) via `POST /v1/provision-schema`. Use `base: "marketplace-base"` for multi-vendor workspaces; omit or `"base"` for non-marketplace. Idempotent.
 - **0.2.1** — Spec-driven SDK: optional `specUrl`, `getSpec()`, `request(method, path, opts)`. New methods from tenant OpenAPI: `search()`, `me()`, `events.emit()`, `webhooks.inbound()`. **Auth (app users):** `auth.signin()`, `auth.signup()`, `auth.session()`, `auth.signout()`, `auth.users()`. Tenant spec at `GET /v1/openapi.json` (with API key).
 - **0.1.5** — Discovery-based: `client.capabilities()` fetches enabled features from `/v1/capabilities`. Store, site, holmes methods only available when installed.
 - **0.1.4** — Site search, stores, delivery slots, checkout, Holmes infer
@@ -35,6 +36,10 @@ const client = new AuroraClient({
   // optional: tenant OpenAPI spec URL (default: baseUrl + "/v1/openapi.json")
   // specUrl: "https://api.youraurora.com/v1/openapi.json",
 });
+
+// First run: provision your app's schema (tables, optional reports/workflows). Idempotent.
+// Load your template schema (e.g. from aurora/schema.json) and call:
+await client.provisionSchema(schema, { base: "marketplace-base" }); // multi-vendor; use "base" or omit for non-marketplace
 
 // Capabilities (what's enabled for this tenant)
 const caps = await client.capabilities();
@@ -93,6 +98,12 @@ Create API keys in Aurora Studio → Settings → API Keys.
 | `baseUrl`  | string | API base URL (e.g. `https://api.youraurora.com`). |
 | `apiKey`   | string | API key (storefront or workspace). |
 | `specUrl?` | string | Optional. Tenant OpenAPI spec URL. Default: `baseUrl + "/v1/openapi.json"`. |
+
+### Provision schema (first run)
+
+| Method | Description |
+| ------ | ----------- |
+| `client.provisionSchema(schema, options?)` | Provision tables (and optional `reports`, `workflows`) from your template. Call on first run. Requires valid API key. `schema`: `{ tables: [...], reports?: [...], workflows?: [...] }`. `options.base`: `"marketplace-base"` for multi-vendor workspaces (vendors, products, vendor_products already provisioned by Studio); `"base"` or omit for non-marketplace. Idempotent: only adds missing tables/columns. |
 
 ### Capabilities (discovery)
 
@@ -171,5 +182,7 @@ The package exports TypeScript types for responses and params, including:
 - `CheckoutLineItem`, `CreateCheckoutSessionParams`, `CheckoutSessionResult`
 - `AcmeSession`, `HolmesInferResult`
 - Auth: `AuthSignInParams`, `AuthSignUpParams`, `AuthSessionResponse`, `AuthSignUpResponse`, `AuthSessionUser`, `AuthUserListItem`, `AuthUsersResponse`
+
+`provisionSchema` returns `{ ok, base, tablesCreated, reportsCreated, workflowsCreated, message }`.
 
 Use these for type-safe usage in your app.
