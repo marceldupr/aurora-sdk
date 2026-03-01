@@ -219,4 +219,93 @@ describe("AuroraClient", () => {
       await expect(client.tables.list()).rejects.toThrow("Aurora API 401: Invalid API key");
     });
   });
+
+  describe("spec-driven API", () => {
+    it("getSpec() fetches specUrl with API key and caches", async () => {
+      const client = new AuroraClient({ baseUrl, apiKey });
+      const spec = {
+        openapi: "3.0.3",
+        servers: [{ url: `${baseUrl}/v1` }],
+        paths: { "/search": { get: {} }, "/me": { get: {} } },
+      };
+      (fetchSpy as ReturnType<typeof vi.spyOn>).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(spec),
+        text: () => Promise.resolve(JSON.stringify(spec)),
+      } as Response);
+
+      const result = await client.getSpec();
+      expect(result).toEqual(spec);
+      expect(fetchSpy).toHaveBeenCalledWith(
+        `${baseUrl}/v1/openapi.json`,
+        expect.objectContaining({
+          headers: expect.objectContaining({ "X-Api-Key": apiKey }),
+        })
+      );
+      const result2 = await client.getSpec();
+      expect(result2).toBe(result);
+      expect((fetchSpy as ReturnType<typeof vi.spyOn>).mock.calls.filter((c) => String(c[0]).includes("openapi.json"))).toHaveLength(1);
+    });
+
+    it("request() uses spec server URL and returns JSON", async () => {
+      const client = new AuroraClient({ baseUrl, apiKey });
+      const spec = { openapi: "3.0.3", servers: [{ url: `${baseUrl}/v1` }], paths: {} };
+      (fetchSpy as ReturnType<typeof vi.spyOn>)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(spec),
+          text: () => Promise.resolve(JSON.stringify(spec)),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ hits: [], total: 0, facetDistribution: {}, provider: "fallback" }),
+          text: () => Promise.resolve("{}"),
+        } as Response);
+
+      const data = await client.request<{ hits: unknown[]; total: number }>("GET", "/search", { query: { q: "test" } });
+      expect(data).toEqual({ hits: [], total: 0, facetDistribution: {}, provider: "fallback" });
+      expect(fetchSpy).toHaveBeenCalledWith(
+        `${baseUrl}/v1/search?q=test`,
+        expect.objectContaining({ method: "GET", headers: expect.objectContaining({ "X-Api-Key": apiKey }) })
+      );
+    });
+
+    it("search() and me() call spec paths", async () => {
+      const client = new AuroraClient({ baseUrl, apiKey });
+      const spec = { openapi: "3.0.3", servers: [{ url: `${baseUrl}/v1` }], paths: {} };
+      (fetchSpy as ReturnType<typeof vi.spyOn>)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(spec),
+          text: () => Promise.resolve(JSON.stringify(spec)),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ hits: [], total: 0, facetDistribution: {}, provider: "fallback" }),
+          text: () => Promise.resolve("{}"),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ tenantId: "tid", user: { id: "u1" } }),
+          text: () => Promise.resolve("{}"),
+        } as Response);
+
+      await client.search({ q: "x" });
+      expect((fetchSpy as ReturnType<typeof vi.spyOn>).mock.calls.some((c) => String(c[0]).includes("/search"))).toBe(true);
+      await client.me({ userId: "u1" });
+      expect((fetchSpy as ReturnType<typeof vi.spyOn>).mock.calls.some((c) => String(c[0]).includes("/me"))).toBe(true);
+      const lastMeCall = (fetchSpy as ReturnType<typeof vi.spyOn>).mock.calls.find((c) => String(c[0]).includes("/me"));
+      expect(lastMeCall?.[1]).toEqual(
+        expect.objectContaining({
+          headers: expect.objectContaining({ "X-User-Id": "u1" }),
+        })
+      );
+    });
+  });
 });

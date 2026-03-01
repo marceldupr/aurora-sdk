@@ -2,6 +2,10 @@
  * Aurora Studio SDK - Discovery-based API for custom front-ends and storefronts.
  * Use with X-Api-Key authentication. Capabilities (store, site, holmes) are
  * discovered from the API — only enabled features expose methods.
+ *
+ * When specUrl is provided (or default baseUrl + /v1/openapi.json), the client
+ * fetches the tenant OpenAPI spec and can adjust itself: request() uses the
+ * spec's server URL, and search/me/events call the paths defined in the spec.
  */
 
 export interface AuroraClientOptions {
@@ -9,6 +13,19 @@ export interface AuroraClientOptions {
   baseUrl: string;
   /** API key (storefront or workspace scope) */
   apiKey: string;
+  /**
+   * OpenAPI spec URL for this tenant. When set, the SDK fetches the spec and
+   * uses it for request() base URL and for spec-driven methods (search, me, events).
+   * Default: baseUrl + "/v1/openapi.json"
+   */
+  specUrl?: string;
+}
+
+/** Minimal OpenAPI 3 spec shape used by the SDK */
+export interface OpenAPISpec {
+  openapi: string;
+  servers: Array<{ url: string; description?: string }>;
+  paths: Record<string, Record<string, unknown>>;
 }
 
 export interface Capabilities {
@@ -184,11 +201,87 @@ export interface HolmesInferResult {
 export class AuroraClient {
   private baseUrl: string;
   private apiKey: string;
+  private specUrl: string;
   private caps: Capabilities | null = null;
+  private specPromise: Promise<OpenAPISpec> | null = null;
 
   constructor(options: AuroraClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, "");
     this.apiKey = options.apiKey;
+    this.specUrl =
+      options.specUrl ?? `${this.baseUrl}/v1/openapi.json`;
+  }
+
+  /**
+   * Fetch and cache the tenant OpenAPI spec (from specUrl with API key).
+   * Used by request() and by spec-driven methods.
+   */
+  async getSpec(): Promise<OpenAPISpec> {
+    if (this.specPromise) return this.specPromise;
+    this.specPromise = (async () => {
+      const res = await fetch(this.specUrl, {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Api-Key": this.apiKey,
+        },
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`Failed to load OpenAPI spec: ${res.status} ${err}`);
+      }
+      return res.json() as Promise<OpenAPISpec>;
+    })();
+    return this.specPromise;
+  }
+
+  /**
+   * Base URL for v1/spec-driven requests. Uses spec server URL when spec is loaded, else baseUrl + /v1.
+   */
+  private async getV1Base(): Promise<string> {
+    try {
+      const spec = await this.getSpec();
+      const server = spec.servers?.[0]?.url;
+      if (server) return server.replace(/\/$/, "");
+    } catch {
+      // fallback to default
+    }
+    return `${this.baseUrl}/v1`;
+  }
+
+  /**
+   * Low-level request to the tenant API. Path is relative to the spec's server (e.g. /tables, /search).
+   * Uses the tenant OpenAPI spec URL when available so the SDK adjusts to the tenant's surface.
+   */
+  async request<T = unknown>(
+    method: string,
+    path: string,
+    opts?: { body?: unknown; query?: QueryParams; headers?: Record<string, string> }
+  ): Promise<T> {
+    const base = await this.getV1Base();
+    const url = `${base}${path.startsWith("/") ? path : `/${path}`}${buildQuery(opts?.query)}`;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "X-Api-Key": this.apiKey,
+      ...opts?.headers,
+    };
+    const res = await fetch(url, {
+      method,
+      headers,
+      body: opts?.body != null ? JSON.stringify(opts.body) : undefined,
+    });
+    if (!res.ok) {
+      const errBody = await res.text();
+      let msg: string;
+      try {
+        const j = JSON.parse(errBody);
+        msg = (j?.error as string) ?? errBody ?? res.statusText;
+      } catch {
+        msg = errBody || res.statusText;
+      }
+      throw new Error(`Aurora API ${res.status}: ${msg}`);
+    }
+    if (res.status === 204) return undefined as T;
+    return res.json() as Promise<T>;
   }
 
   private req<T>(
@@ -368,5 +461,41 @@ export class AuroraClient {
         query: { sid: sessionId },
       });
     },
+  };
+
+  // --- Spec-driven methods (use tenant OpenAPI spec; paths like /search, /me, /events) ---
+
+  /** Search across catalog. Uses GET /search from tenant spec. */
+  search = (params?: SearchParams): Promise<SearchResult> =>
+    this.request<SearchResult>("GET", "/search", { query: params as QueryParams });
+
+  /** Current user metadata and template-defined related data (e.g. addresses). Pass userId in headers via request(). */
+  me = (opts?: { userId?: string }): Promise<{ tenantId: string; user?: { id: string }; addresses?: unknown[]; [key: string]: unknown }> =>
+    this.request("GET", "/me", {
+      headers: opts?.userId ? { "X-User-Id": opts.userId } : undefined,
+    });
+
+  /** Raise a domain event. Uses POST /events from tenant spec. */
+  events = {
+    emit: (body: {
+      type: string;
+      entityType: string;
+      entityId?: string;
+      payload?: Record<string, unknown>;
+      dedupeKey?: string;
+    }) => this.request<{ eventId: string; type: string; entityType: string; entityId: string }>("POST", "/events", { body }),
+  };
+
+  /** Inbound webhook: POST payload to tenant. Uses POST /webhooks/inbound from tenant spec. */
+  webhooks = {
+    inbound: (payload: Record<string, unknown>, headers?: { source?: string; event?: string; path?: string }) =>
+      this.request("POST", "/webhooks/inbound", {
+        body: payload,
+        headers: {
+          ...(headers?.source && { "X-Webhook-Source": headers.source }),
+          ...(headers?.event && { "X-Webhook-Event": headers.event }),
+          ...(headers?.path && { "X-Webhook-Path": headers.path }),
+        },
+      }),
   };
 }
