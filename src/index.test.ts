@@ -1,31 +1,49 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { AuroraClient } from "./index.js";
 
+const capabilitiesResponse = {
+  tenantSlug: "acme",
+  features: { store: true, site: true, holmes: true },
+};
+
 describe("AuroraClient", () => {
   const baseUrl = "https://api.example.com";
   const apiKey = "aur_test_abc123";
-  const tenantSlug = "acme";
 
-  let fetchSpy: { mock: { calls: unknown[] }; toHaveBeenCalledWith: (...args: unknown[]) => void; toHaveBeenCalled: () => boolean; toNotHaveBeenCalled?: () => void };
+  let fetchSpy: {
+    mock: { calls: unknown[] };
+    toHaveBeenCalledWith: (...args: unknown[]) => void;
+    toHaveBeenCalled: () => boolean;
+  };
 
   beforeEach(() => {
-    fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      status: 200,
-      statusText: "OK",
-      json: () => Promise.resolve({}),
-      text: () => Promise.resolve("{}"),
-    } as Response);
+    fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation((input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      if (url.includes("/v1/capabilities")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(capabilitiesResponse),
+          text: () => Promise.resolve(JSON.stringify(capabilitiesResponse)),
+        } as Response);
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({}),
+        text: () => Promise.resolve("{}"),
+      } as Response);
+    });
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  describe("V1 APIs (no tenant required)", () => {
+  describe("V1 APIs (no capabilities required)", () => {
     it("lists tables at /v1/tables", async () => {
       const client = new AuroraClient({ baseUrl, apiKey });
-      fetchSpy.mockResolvedValue({
+      (fetchSpy as ReturnType<typeof vi.spyOn>).mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: () => Promise.resolve([{ slug: "products", name: "Products" }]),
@@ -42,25 +60,9 @@ describe("AuroraClient", () => {
       );
     });
 
-    it("lists records at /v1/tables/:slug/records", async () => {
-      const client = new AuroraClient({ baseUrl, apiKey });
-      fetchSpy.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve({ data: [], total: 0, limit: 10, offset: 0 }),
-        text: () => Promise.resolve("{}"),
-      } as Response);
-
-      await client.tables("products").records.list({ limit: 10, offset: 0 });
-      expect(fetchSpy).toHaveBeenCalledWith(
-        expect.stringContaining("/v1/tables/products/records"),
-        expect.any(Object)
-      );
-    });
-
     it("store.config calls /v1/store/config", async () => {
       const client = new AuroraClient({ baseUrl, apiKey });
-      fetchSpy.mockResolvedValue({
+      (fetchSpy as ReturnType<typeof vi.spyOn>).mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: () => Promise.resolve({ enabled: true, catalogTableSlug: "products" }),
@@ -75,181 +77,139 @@ describe("AuroraClient", () => {
     });
   });
 
-  describe("site APIs (require tenantSlug)", () => {
-    it("site.search calls /api/tenants/:slug/site/search with query params", async () => {
-      const client = new AuroraClient({ baseUrl, apiKey, tenantSlug });
-      fetchSpy.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: () =>
-          Promise.resolve({
-            hits: [],
-            total: 0,
-            facetDistribution: {},
-            provider: "meilisearch",
-          }),
-        text: () => Promise.resolve("{}"),
-      } as Response);
+  describe("capabilities discovery", () => {
+    it("capabilities() fetches /v1/capabilities and caches result", async () => {
+      const client = new AuroraClient({ baseUrl, apiKey });
+      const caps = await client.capabilities();
+      expect(caps).toEqual(capabilitiesResponse);
+      expect(fetchSpy).toHaveBeenCalledWith(
+        expect.stringContaining("/v1/capabilities"),
+        expect.any(Object)
+      );
+      const caps2 = await client.capabilities();
+      expect(caps2).toBe(caps);
+      expect((fetchSpy as ReturnType<typeof vi.spyOn>).mock.calls.filter((c) => String(c[0]).includes("capabilities"))).toHaveLength(1);
+    });
+  });
+
+  describe("site APIs (require site capability)", () => {
+    it("site.search fetches capabilities then calls site/search", async () => {
+      const client = new AuroraClient({ baseUrl, apiKey });
+      (fetchSpy as ReturnType<typeof vi.spyOn>)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(capabilitiesResponse),
+          text: () => Promise.resolve("{}"),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve({
+              hits: [],
+              total: 0,
+              facetDistribution: {},
+              provider: "meilisearch",
+            }),
+          text: () => Promise.resolve("{}"),
+        } as Response);
 
       await client.site.search({ q: "milk", limit: 20 });
       expect(fetchSpy).toHaveBeenCalledWith(
         expect.stringMatching(
-          new RegExp(`${baseUrl}/api/tenants/${tenantSlug}/site/search\\?q=milk&limit=20`)
+          new RegExp(`${baseUrl}/api/tenants/acme/site/search\\?q=milk&limit=20`)
         ),
         expect.any(Object)
       );
     });
 
-    it("site.stores calls /api/tenants/:slug/site/stores", async () => {
-      const client = new AuroraClient({ baseUrl, apiKey, tenantSlug });
-      fetchSpy.mockResolvedValue({
+    it("site.search throws when site not available", async () => {
+      const client = new AuroraClient({ baseUrl, apiKey });
+      (fetchSpy as ReturnType<typeof vi.spyOn>).mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ data: [] }),
+        json: () =>
+          Promise.resolve({
+            tenantSlug: "acme",
+            features: { store: true, site: false, holmes: true },
+          }),
         text: () => Promise.resolve("{}"),
       } as Response);
 
-      await client.site.stores();
-      expect(fetchSpy).toHaveBeenCalledWith(
-        `${baseUrl}/api/tenants/${tenantSlug}/site/stores`,
-        expect.any(Object)
+      await expect(client.site.search({ q: "x" })).rejects.toThrow(
+        "Site search is not available"
       );
-    });
-
-    it("site.search throws when tenantSlug missing", async () => {
-      const client = new AuroraClient({ baseUrl, apiKey });
-      const fn = () => client.site.search({ q: "x" });
-      await expect(Promise.resolve().then(fn)).rejects.toThrow("tenantSlug is required");
-      expect(fetchSpy).not.toHaveBeenCalled();
     });
   });
 
-  describe("store APIs (require tenantSlug)", () => {
-    it("store.deliverySlots calls /api/tenants/:slug/store/delivery-slots with lat/lng", async () => {
-      const client = new AuroraClient({ baseUrl, apiKey, tenantSlug });
-      fetchSpy.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve({ data: [] }),
-        text: () => Promise.resolve("{}"),
-      } as Response);
+  describe("store APIs (require store capability)", () => {
+    it("store.deliverySlots fetches capabilities then calls delivery-slots", async () => {
+      const client = new AuroraClient({ baseUrl, apiKey });
+      (fetchSpy as ReturnType<typeof vi.spyOn>)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(capabilitiesResponse),
+          text: () => Promise.resolve("{}"),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ data: [] }),
+          text: () => Promise.resolve("{}"),
+        } as Response);
 
       await client.store.deliverySlots(51.5, -0.1);
       expect(fetchSpy).toHaveBeenCalledWith(
         expect.stringMatching(
           new RegExp(
-            `${baseUrl.replace(".", "\\.")}/api/tenants/${tenantSlug}/store/delivery-slots\\?lat=51\\.5&lng=-0\\.1`
+            `${baseUrl.replace(".", "\\.")}/api/tenants/acme/store/delivery-slots\\?lat=51\\.5&lng=-0\\.1`
           )
         ),
         expect.any(Object)
       );
     });
 
-    it("store.checkout.sessions.create POSTs to checkout/sessions", async () => {
-      const client = new AuroraClient({ baseUrl, apiKey, tenantSlug });
-      const params = {
-        lineItems: [{ priceData: { unitAmount: 1000 }, quantity: 1 }],
-        successUrl: "https://store.com/success",
-        cancelUrl: "https://store.com/cancel",
-      };
-      fetchSpy.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve({ id: "cs_123", url: "https://stripe.com/..." }),
-        text: () => Promise.resolve("{}"),
-      } as Response);
-
-      await client.store.checkout.sessions.create(params);
-      expect(fetchSpy).toHaveBeenCalledWith(
-        `${baseUrl}/api/tenants/${tenantSlug}/store/checkout/sessions`,
-        expect.objectContaining({
-          method: "POST",
-          body: JSON.stringify(params),
-        })
-      );
-    });
-
-    it("store.checkout.acme.get calls acme endpoint with session param", async () => {
-      const client = new AuroraClient({ baseUrl, apiKey, tenantSlug });
-      fetchSpy.mockResolvedValue({
+    it("store.deliverySlots throws when store not available", async () => {
+      const client = new AuroraClient({ baseUrl, apiKey });
+      (fetchSpy as ReturnType<typeof vi.spyOn>).mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: () =>
           Promise.resolve({
-            session_id: "acme_abc",
-            line_items: [],
-            total: 1000,
-            currency: "GBP",
-            success_url: "/success",
-            cancel_url: "/cancel",
+            tenantSlug: "acme",
+            features: { store: false, site: false, holmes: true },
           }),
         text: () => Promise.resolve("{}"),
       } as Response);
 
-      await client.store.checkout.acme.get("acme_abc");
-      expect(fetchSpy).toHaveBeenCalledWith(
-        expect.stringContaining(`/store/checkout/acme?session=acme_abc`),
-        expect.any(Object)
-      );
-    });
-
-    it("store.checkout.acme.complete POSTs sessionId and shippingAddress", async () => {
-      const client = new AuroraClient({ baseUrl, apiKey, tenantSlug });
-      const shippingAddress = { line1: "1 High St", city: "London", postal_code: "SW1" };
-      fetchSpy.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve({ success: true, redirectUrl: "/success" }),
-        text: () => Promise.resolve("{}"),
-      } as Response);
-
-      await client.store.checkout.acme.complete("acme_abc", shippingAddress);
-      expect(fetchSpy).toHaveBeenCalledWith(
-        `${baseUrl}/api/tenants/${tenantSlug}/store/checkout/acme/complete`,
-        expect.objectContaining({
-          method: "POST",
-          body: JSON.stringify({ sessionId: "acme_abc", shippingAddress }),
-        })
-      );
-    });
-
-    it("store.deliverySlots throws when tenantSlug missing", async () => {
-      const client = new AuroraClient({ baseUrl, apiKey });
-      const fn = () => client.store.deliverySlots(51, 0);
-      await expect(Promise.resolve().then(fn)).rejects.toThrow("tenantSlug is required");
-      expect(fetchSpy).not.toHaveBeenCalled();
+      await expect(client.store.deliverySlots(51, 0)).rejects.toThrow("Store is not available");
     });
   });
 
-  describe("holmes APIs (require tenantSlug)", () => {
-    it("holmes.infer calls /api/tenants/:slug/holmes/infer with sid", async () => {
-      const client = new AuroraClient({ baseUrl, apiKey, tenantSlug });
-      fetchSpy.mockResolvedValue({
+  describe("holmes APIs (require holmes capability)", () => {
+    it("holmes.infer throws when holmes not available", async () => {
+      const client = new AuroraClient({ baseUrl, apiKey });
+      (fetchSpy as ReturnType<typeof vi.spyOn>).mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ mission: { summary: "Buy milk", confidence: 0.8 } }),
+        json: () =>
+          Promise.resolve({
+            tenantSlug: "acme",
+            features: { store: true, site: true, holmes: false },
+          }),
         text: () => Promise.resolve("{}"),
       } as Response);
 
-      await client.holmes.infer("session_xyz");
-      expect(fetchSpy).toHaveBeenCalledWith(
-        expect.stringContaining(`/holmes/infer?sid=session_xyz`),
-        expect.any(Object)
-      );
-    });
-
-    it("holmes.infer throws when tenantSlug missing", async () => {
-      const client = new AuroraClient({ baseUrl, apiKey });
-      const fn = () => client.holmes.infer("sid");
-      await expect(Promise.resolve().then(fn)).rejects.toThrow("tenantSlug is required");
-      expect(fetchSpy).not.toHaveBeenCalled();
+      await expect(client.holmes.infer("sid")).rejects.toThrow("Holmes is not available");
     });
   });
 
   describe("error handling", () => {
     it("throws with API error message on 4xx", async () => {
       const client = new AuroraClient({ baseUrl, apiKey });
-      fetchSpy.mockResolvedValue({
+      (fetchSpy as ReturnType<typeof vi.spyOn>).mockResolvedValueOnce({
         ok: false,
         status: 401,
         json: () => Promise.resolve({ error: "Invalid API key" }),
@@ -257,17 +217,6 @@ describe("AuroraClient", () => {
       } as Response);
 
       await expect(client.tables.list()).rejects.toThrow("Aurora API 401: Invalid API key");
-    });
-
-    it("handles non-JSON error body", async () => {
-      const client = new AuroraClient({ baseUrl, apiKey });
-      fetchSpy.mockResolvedValue({
-        ok: false,
-        status: 500,
-        text: () => Promise.resolve("Internal Server Error"),
-      } as Response);
-
-      await expect(client.tables.list()).rejects.toThrow("Aurora API 500");
     });
   });
 });

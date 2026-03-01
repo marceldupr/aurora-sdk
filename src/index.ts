@@ -1,6 +1,7 @@
 /**
- * Aurora Studio SDK - Fluent API for custom front-ends and storefronts.
- * Use with X-Api-Key authentication.
+ * Aurora Studio SDK - Discovery-based API for custom front-ends and storefronts.
+ * Use with X-Api-Key authentication. Capabilities (store, site, holmes) are
+ * discovered from the API — only enabled features expose methods.
  */
 
 export interface AuroraClientOptions {
@@ -8,8 +9,15 @@ export interface AuroraClientOptions {
   baseUrl: string;
   /** API key (storefront or workspace scope) */
   apiKey: string;
-  /** Tenant slug — required for site, store, and holmes APIs. Omit for v1 tables/views/reports only. */
-  tenantSlug?: string;
+}
+
+export interface Capabilities {
+  tenantSlug: string;
+  features: {
+    store?: boolean;
+    site?: boolean;
+    holmes?: boolean;
+  };
 }
 
 type QueryParams = Record<string, string | number | boolean | undefined>;
@@ -57,11 +65,11 @@ async function request<T>(
   return res.json() as Promise<T>;
 }
 
-function requireTenant(tenantSlug: string | undefined): string {
-  if (!tenantSlug) {
-    throw new Error("tenantSlug is required for this API. Pass it in AuroraClientOptions.");
-  }
-  return tenantSlug;
+function notAvailable(feature: string): never {
+  throw new Error(
+    `${feature} is not available. This tenant may not have the relevant template installed. ` +
+      `Check client.capabilities() to see what features are enabled.`
+  );
 }
 
 // --- Types for site/store/holmes APIs ---
@@ -176,12 +184,11 @@ export interface HolmesInferResult {
 export class AuroraClient {
   private baseUrl: string;
   private apiKey: string;
-  private tenantSlug: string | undefined;
+  private caps: Capabilities | null = null;
 
   constructor(options: AuroraClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, "");
     this.apiKey = options.apiKey;
-    this.tenantSlug = options.tenantSlug;
   }
 
   private req<T>(
@@ -192,12 +199,21 @@ export class AuroraClient {
     return request<T>(this.baseUrl, this.apiKey, method, path, opts);
   }
 
-  private tenantPath(segment: string): string {
-    const slug = requireTenant(this.tenantSlug);
+  private tenantPath(segment: string, slug: string): string {
     return `/api/tenants/${encodeURIComponent(slug)}${segment}`;
   }
 
-  // --- V1 APIs (tenant from API key) ---
+  /**
+   * Discover what features are installed for this tenant.
+   * Store, site, and holmes methods are only available when the corresponding feature is enabled.
+   */
+  async capabilities(): Promise<Capabilities> {
+    if (this.caps) return this.caps;
+    this.caps = await this.req<Capabilities>("GET", "/v1/capabilities");
+    return this.caps;
+  }
+
+  // --- V1 APIs (always available) ---
 
   tables = Object.assign(
     (slug: string) => ({
@@ -259,6 +275,7 @@ export class AuroraClient {
   );
 
   store = {
+    /** Always available — returns enabled: false when no store template installed */
     config: () =>
       this.req<{
         enabled: boolean;
@@ -283,24 +300,32 @@ export class AuroraClient {
           `/v1/store/pages/${slug}`
         ),
     },
-    /** Delivery slots for a location. Requires tenantSlug. */
-    deliverySlots: (lat: number, lng: number): Promise<{ data: DeliverySlot[] }> => {
-      return this.req("GET", this.tenantPath("/store/delivery-slots"), {
+    deliverySlots: async (lat: number, lng: number): Promise<{ data: DeliverySlot[] }> => {
+      const caps = await this.capabilities();
+      if (!caps.features.store) notAvailable("Store");
+      return this.req("GET", this.tenantPath("/store/delivery-slots", caps.tenantSlug), {
         query: { lat: String(lat), lng: String(lng) },
       });
     },
-    /** Create checkout session (Stripe or ACME). Requires tenantSlug. */
     checkout: {
       sessions: {
-        create: (params: CreateCheckoutSessionParams): Promise<CheckoutSessionResult> =>
-          this.req("POST", this.tenantPath("/store/checkout/sessions"), { body: params }),
+        create: async (params: CreateCheckoutSessionParams): Promise<CheckoutSessionResult> => {
+          const caps = await this.capabilities();
+          if (!caps.features.store) notAvailable("Store");
+          return this.req("POST", this.tenantPath("/store/checkout/sessions", caps.tenantSlug), {
+            body: params,
+          });
+        },
       },
       acme: {
-        get: (sessionId: string): Promise<AcmeSession> =>
-          this.req("GET", this.tenantPath("/store/checkout/acme"), {
+        get: async (sessionId: string): Promise<AcmeSession> => {
+          const caps = await this.capabilities();
+          if (!caps.features.store) notAvailable("Store");
+          return this.req("GET", this.tenantPath("/store/checkout/acme", caps.tenantSlug), {
             query: { session: sessionId },
-          }),
-        complete: (
+          });
+        },
+        complete: async (
           sessionId: string,
           shippingAddress?: {
             line1?: string;
@@ -309,28 +334,39 @@ export class AuroraClient {
             postal_code?: string;
             country?: string;
           }
-        ): Promise<AcmeCompleteResult> =>
-          this.req("POST", this.tenantPath("/store/checkout/acme/complete"), {
+        ): Promise<AcmeCompleteResult> => {
+          const caps = await this.capabilities();
+          if (!caps.features.store) notAvailable("Store");
+          return this.req("POST", this.tenantPath("/store/checkout/acme/complete", caps.tenantSlug), {
             body: { sessionId, shippingAddress },
-          }),
+          });
+        },
       },
     },
   };
 
-  /** Meilisearch-powered site search. Requires tenantSlug. */
   site = {
-    search: (params: SearchParams): Promise<SearchResult> =>
-      this.req("GET", this.tenantPath("/site/search"), { query: params as QueryParams }),
-    /** List stores/vendors for storefront. Requires tenantSlug. */
-    stores: (): Promise<{ data: StoreItem[] }> =>
-      this.req("GET", this.tenantPath("/site/stores")),
+    search: async (params: SearchParams): Promise<SearchResult> => {
+      const caps = await this.capabilities();
+      if (!caps.features.site) notAvailable("Site search");
+      return this.req("GET", this.tenantPath("/site/search", caps.tenantSlug), {
+        query: params as QueryParams,
+      });
+    },
+    stores: async (): Promise<{ data: StoreItem[] }> => {
+      const caps = await this.capabilities();
+      if (!caps.features.site) notAvailable("Site stores");
+      return this.req("GET", this.tenantPath("/site/stores", caps.tenantSlug));
+    },
   };
 
-  /** Holmes AI mission inference. Requires tenantSlug. */
   holmes = {
-    infer: (sessionId: string): Promise<HolmesInferResult> =>
-      this.req("GET", this.tenantPath("/holmes/infer"), {
+    infer: async (sessionId: string): Promise<HolmesInferResult> => {
+      const caps = await this.capabilities();
+      if (!caps.features.holmes) notAvailable("Holmes");
+      return this.req("GET", this.tenantPath("/holmes/infer", caps.tenantSlug), {
         query: { sid: sessionId },
-      }),
+      });
+    },
   };
 }

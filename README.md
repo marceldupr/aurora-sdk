@@ -1,6 +1,6 @@
 # @aurora-studio/sdk
 
-Node.js SDK for Aurora Studio. Connect custom front-ends and storefronts to your Aurora data via the V1 API, site APIs, and store APIs.
+Node.js SDK for Aurora Studio. Connect custom front-ends and storefronts to your Aurora data via the V1 API. Features (store, site, holmes) are **discovered** from the API — only enabled capabilities expose methods.
 
 **Aurora** is an all-in-one, no-code platform for stores, marketplaces, CRMs, and more. Design your data, generate your app, automate workflows. Ship in hours, not months.
 
@@ -8,7 +8,8 @@ Node.js SDK for Aurora Studio. Connect custom front-ends and storefronts to your
 
 ## Changelog
 
-- **0.1.4** — Site search, stores, delivery slots, checkout (Stripe/ACME), Holmes infer. Pass `tenantSlug` for tenant-scoped APIs.
+- **0.1.5** — Discovery-based: `client.capabilities()` fetches enabled features from `/v1/capabilities`. Store, site, holmes methods only available when installed. No template-specific hardcoding.
+- **0.1.4** — Site search, stores, delivery slots, checkout, Holmes infer
 - **0.1.3** — Add repository field for provenance
 - **0.1.2** — Trusted publishing (OIDC) configured
 - **0.1.1** — CI/CD setup
@@ -28,79 +29,72 @@ import { AuroraClient } from "@aurora-studio/sdk";
 const aurora = new AuroraClient({
   baseUrl: "https://api.youraurora.com",
   apiKey: "aur_xxx...",
-  tenantSlug: "acme", // Required for site, store, and holmes APIs
 });
 
-// V1 APIs (tenant from API key)
+// V1 APIs (always available)
 const tables = await aurora.tables.list();
-const { data, total } = await aurora.tables("products").records.list({ limit: 10 });
-const config = await aurora.store.config();
+const config = await aurora.store.config(); // enabled: false when no store template
 
-// Site APIs (require tenantSlug)
-const searchResult = await aurora.site.search({ q: "milk", limit: 20 });
-const { data: stores } = await aurora.site.stores();
+// Discover what's installed
+const caps = await aurora.capabilities();
+// { tenantSlug: "acme", features: { store: true, site: true, holmes: true } }
 
-// Store APIs (require tenantSlug)
-const { data: slots } = await aurora.store.deliverySlots(51.5, -0.1);
-const { id, url } = await aurora.store.checkout.sessions.create({
-  lineItems: [{ priceData: { unitAmount: 1000 }, quantity: 1 }],
-  successUrl: "https://store.com/success",
-  cancelUrl: "https://store.com/cancel",
-});
+// Site/store/holmes only work when the feature is enabled
+if (caps.features.site) {
+  const result = await aurora.site.search({ q: "milk" });
+}
+if (caps.features.store) {
+  const { data: slots } = await aurora.store.deliverySlots(51.5, -0.1);
+}
+if (caps.features.holmes) {
+  const infer = await aurora.holmes.infer("session_id");
+}
 
-// ACME checkout (require tenantSlug)
-const session = await aurora.store.checkout.acme.get("acme_abc");
-const { redirectUrl } = await aurora.store.checkout.acme.complete("acme_abc", {
-  line1: "1 High St",
-  city: "London",
-  postal_code: "SW1",
-});
-
-// Holmes AI (require tenantSlug)
-const infer = await aurora.holmes.infer("session_id");
+// If you call a disabled feature, you get a clear error:
+// "Store is not available. This tenant may not have the relevant template installed."
 ```
 
 ## API Surface
 
-### V1 APIs (tenant from API key)
+### Capabilities (discovery)
 
-| Method                                         | Description        |
-| ---------------------------------------------- | ------------------ |
-| `client.tables.list()`                         | List tables        |
-| `client.tables(slug).records.list(opts)`       | List records       |
-| `client.tables(slug).records.get(id)`          | Get record         |
-| `client.tables(slug).records.create(data)`     | Create record      |
-| `client.tables(slug).records.update(id, data)` | Update record      |
-| `client.tables(slug).records.delete(id)`       | Delete record      |
-| `client.tables(slug).sectionViews.list()`      | List section views |
-| `client.views.list()`                          | List report views  |
-| `client.views(slug).data()`                    | Get view data      |
-| `client.reports.list()`                        | List reports       |
-| `client.reports(id).data()`                    | Get report data    |
-| `client.store.config()`                        | Get store config   |
-| `client.store.pages.list()`                    | List store pages   |
-| `client.store.pages.get(slug)`                 | Get store page     |
+| Method | Description |
+| ------ | ----------- |
+| `client.capabilities()` | Fetch enabled features. Cached. Returns `{ tenantSlug, features: { store?, site?, holmes? } }` |
 
-### Site APIs (require `tenantSlug`)
+### V1 APIs (always available)
 
-| Method                    | Description              |
-| ------------------------- | ------------------------ |
+| Method | Description |
+| ------ | ----------- |
+| `client.tables.list()` | List tables |
+| `client.tables(slug).records.list(opts)` | List records |
+| `client.tables(slug).records.get(id)` | Get record |
+| `client.tables(slug).records.create(data)` | Create record |
+| `client.tables(slug).records.update(id, data)` | Update record |
+| `client.tables(slug).records.delete(id)` | Delete record |
+| `client.store.config()` | Store config (enabled: false when no template) |
+| `client.store.pages.list()` | List store pages |
+
+### Site APIs (when `features.site` is true)
+
+| Method | Description |
+| ------ | ----------- |
 | `client.site.search(opts)` | Meilisearch product search |
-| `client.site.stores()`    | List stores/vendors      |
+| `client.site.stores()` | List stores/vendors |
 
-### Store APIs (require `tenantSlug`)
+### Store APIs (when `features.store` is true)
 
-| Method                                    | Description               |
-| ----------------------------------------- | ------------------------- |
-| `client.store.deliverySlots(lat, lng)`    | Get delivery slots        |
-| `client.store.checkout.sessions.create(params)` | Create checkout session   |
-| `client.store.checkout.acme.get(sessionId)`      | Get ACME session          |
+| Method | Description |
+| ------ | ----------- |
+| `client.store.deliverySlots(lat, lng)` | Delivery slots |
+| `client.store.checkout.sessions.create(params)` | Create checkout session |
+| `client.store.checkout.acme.get(sessionId)` | Get ACME session |
 | `client.store.checkout.acme.complete(sessionId, addr?)` | Complete ACME checkout |
 
-### Holmes (require `tenantSlug`)
+### Holmes (when `features.holmes` is true)
 
-| Method                   | Description        |
-| ------------------------ | ------------------ |
-| `client.holmes.infer(sid)` | Mission inference  |
+| Method | Description |
+| ------ | ----------- |
+| `client.holmes.infer(sid)` | Mission inference |
 
 Create API keys in Aurora Studio → Settings → API Keys.
