@@ -1,6 +1,6 @@
 {
   "name": "@aurora-studio/sdk",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "repository": { "type": "git", "url": "https://github.com/marceldupr/aurora-sdk" },
   "type": "module",
   "main": "dist/index.js",

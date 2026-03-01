@@ -293,17 +293,22 @@ export class AuroraClient {
   }
 
   /**
-   * Base URL for v1/spec-driven requests. Uses spec server URL when spec is loaded, else baseUrl + /v1.
+   * Base URL for v1/spec-driven requests. Uses spec server URL when spec is loaded and absolute, else baseUrl + /v1.
    */
   private async getV1Base(): Promise<string> {
+    const fallback = `${this.baseUrl}/v1`;
     try {
       const spec = await this.getSpec();
       const server = spec.servers?.[0]?.url;
-      if (server) return server.replace(/\/$/, "");
+      const base = server ? server.replace(/\/$/, "") : "";
+      // Only use spec server URL if it's absolute (Node fetch rejects relative URLs)
+      if (base && (base.startsWith("http://") || base.startsWith("https://"))) {
+        return base;
+      }
     } catch {
       // fallback to default
     }
-    return `${this.baseUrl}/v1`;
+    return fallback;
   }
 
   /**
@@ -317,6 +322,11 @@ export class AuroraClient {
   ): Promise<T> {
     const base = await this.getV1Base();
     const url = `${base}${path.startsWith("/") ? path : `/${path}`}${buildQuery(opts?.query)}`;
+    if (url.startsWith("/")) {
+      throw new Error(
+        "Aurora API baseUrl must be an absolute URL. Set AURORA_API_URL or NEXT_PUBLIC_AURORA_API_URL to your Aurora API root (e.g. https://api.youraurora.com)."
+      );
+    }
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "X-Api-Key": this.apiKey,
@@ -353,6 +363,11 @@ export class AuroraClient {
   ): Promise<T> {
     const base = await this.getV1Base();
     const url = `${base}${path.startsWith("/") ? path : `/${path}`}`;
+    if (url.startsWith("/")) {
+      throw new Error(
+        "Aurora API baseUrl must be an absolute URL. Set AURORA_API_URL or NEXT_PUBLIC_AURORA_API_URL to your Aurora API root (e.g. https://api.youraurora.com)."
+      );
+    }
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken}`,
