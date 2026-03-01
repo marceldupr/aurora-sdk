@@ -399,6 +399,41 @@ export class AuroraClient {
     return this.caps;
   }
 
+  /**
+   * Provision schema from template (tables, optional reports/workflows).
+   * Call on first run when your app needs its tables. Requires valid API key.
+   * base: "marketplace-base" if the workspace is a marketplace (vendors, products); "base" or omit for non-marketplace.
+   * Idempotent: only adds missing tables/columns.
+   */
+  async provisionSchema(
+    schema: {
+      tables: Array<{ slug: string; name: string; icon?: string; fields: unknown[] }>;
+      reports?: Array<{
+        name: string;
+        description?: string;
+        config: Record<string, unknown>;
+        lock_level?: "locked" | null;
+      }>;
+      workflows?: Array<{
+        name: string;
+        definition: { nodes: Record<string, unknown>[]; edges: Record<string, unknown>[] };
+        lock_level?: "locked" | null;
+      }>;
+    },
+    options?: { base?: "marketplace-base" | "base" }
+  ): Promise<{
+    ok: boolean;
+    base: "marketplace-base" | "base";
+    tablesCreated: number;
+    reportsCreated: number;
+    workflowsCreated: number;
+    message: string;
+  }> {
+    return this.req("POST", "/v1/provision-schema", {
+      body: { schema, base: options?.base ?? "base" },
+    });
+  }
+
   // --- V1 APIs (always available) ---
 
   tables = Object.assign(
