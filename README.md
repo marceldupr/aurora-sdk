@@ -10,7 +10,7 @@ Node.js SDK for Aurora Studio. Connect custom front-ends and storefronts to your
 
 ## Changelog
 
-- **0.2.0** — Spec-driven SDK: optional `specUrl`, `getSpec()`, `request(method, path, opts)`. New methods from tenant OpenAPI: `search()`, `me()`, `events.emit()`, `webhooks.inbound()`. Tenant spec at `GET /v1/openapi.json` (with API key).
+- **0.2.1** — Spec-driven SDK: optional `specUrl`, `getSpec()`, `request(method, path, opts)`. New methods from tenant OpenAPI: `search()`, `me()`, `events.emit()`, `webhooks.inbound()`. **Auth (app users):** `auth.signin()`, `auth.signup()`, `auth.session()`, `auth.signout()`, `auth.users()`. Tenant spec at `GET /v1/openapi.json` (with API key).
 - **0.1.5** — Discovery-based: `client.capabilities()` fetches enabled features from `/v1/capabilities`. Store, site, holmes methods only available when installed.
 - **0.1.4** — Site search, stores, delivery slots, checkout, Holmes infer
 - **0.1.3** — Add repository field for provenance
@@ -43,6 +43,13 @@ const caps = await client.capabilities();
 // V1 APIs (always available)
 const tables = await client.tables.list();
 const config = await client.store.config();
+
+// Auth (app users: storefront sign in/up, session, list customers)
+const session = await client.auth.signin({ email: "u@example.com", password: "***" });
+// session.access_token — use as Bearer for client.auth.session() and client.me({ userId: session.user.id })
+const current = await client.auth.session(session.access_token);
+await client.auth.signout(session.access_token);
+const { data: appUsers } = await client.auth.users({ limit: 20, offset: 0 });
 
 // Spec-driven: search, me, events (use tenant spec when loaded)
 const results = await client.search({ q: "milk", limit: 20 });
@@ -104,6 +111,16 @@ Create API keys in Aurora Studio → Settings → API Keys.
 | `client.events.emit(body)` | Raise a domain event. Uses `POST /events`. Body: `type`, `entityType`, `entityId?`, `payload?`, `dedupeKey?`. |
 | `client.webhooks.inbound(payload, headers?)` | Send payload to tenant inbound webhook. Uses `POST /webhooks/inbound`. Optional headers: `source`, `event`, `path`. |
 
+### Auth (app users — storefront customers)
+
+| Method | Description |
+| ------ | ----------- |
+| `client.auth.signin({ email, password })` | Sign in app user. Returns `{ access_token, refresh_token, user, expires_at }`. Use `access_token` as Bearer for `session` and `me`. |
+| `client.auth.signup({ email, password, options? })` | Sign up app user. Returns session or `{ user, message }` when email confirmation is required. `options`: `data`, `emailRedirectTo`. |
+| `client.auth.session(accessToken)` | Validate Bearer token and return current user. No API key. |
+| `client.auth.signout(accessToken)` | Sign out; client should discard tokens. |
+| `client.auth.users({ limit?, offset? })` | List app users (storefront customers) for the tenant. Paginated. Requires API key. |
+
 ### V1 APIs (always available)
 
 | Method | Description |
@@ -153,5 +170,6 @@ The package exports TypeScript types for responses and params, including:
 - `DeliverySlot`, `StoreItem`
 - `CheckoutLineItem`, `CreateCheckoutSessionParams`, `CheckoutSessionResult`
 - `AcmeSession`, `HolmesInferResult`
+- Auth: `AuthSignInParams`, `AuthSignUpParams`, `AuthSessionResponse`, `AuthSignUpResponse`, `AuthSessionUser`, `AuthUserListItem`, `AuthUsersResponse`
 
 Use these for type-safe usage in your app.

@@ -198,6 +198,64 @@ export interface HolmesInferResult {
   };
 }
 
+// --- Auth (app users: storefront sign in/up, session, list customers) ---
+
+export interface AuthSignInParams {
+  email: string;
+  password: string;
+}
+
+export interface AuthSignUpParams {
+  email: string;
+  password: string;
+  options?: {
+    data?: Record<string, unknown>;
+    emailRedirectTo?: string;
+  };
+}
+
+export interface AuthSessionResponse {
+  access_token: string;
+  refresh_token: string;
+  user: {
+    id: string;
+    email?: string;
+    user_metadata?: Record<string, unknown>;
+    app_metadata?: Record<string, unknown>;
+  };
+  expires_at?: number;
+}
+
+/** Signup may return a session or, when email confirmation is required, only user + message. */
+export type AuthSignUpResponse =
+  | AuthSessionResponse
+  | { user: AuthSessionResponse["user"]; message: string };
+
+export interface AuthSessionUser {
+  user: {
+    id: string;
+    email?: string;
+    user_metadata?: Record<string, unknown>;
+    app_metadata?: Record<string, unknown>;
+  };
+}
+
+export interface AuthUserListItem {
+  id?: string;
+  user_id: string;
+  email?: string;
+  display_name?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AuthUsersResponse {
+  data: AuthUserListItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export class AuroraClient {
   private baseUrl: string;
   private apiKey: string;
@@ -263,6 +321,41 @@ export class AuroraClient {
       "Content-Type": "application/json",
       "X-Api-Key": this.apiKey,
       ...opts?.headers,
+    };
+    const res = await fetch(url, {
+      method,
+      headers,
+      body: opts?.body != null ? JSON.stringify(opts.body) : undefined,
+    });
+    if (!res.ok) {
+      const errBody = await res.text();
+      let msg: string;
+      try {
+        const j = JSON.parse(errBody);
+        msg = (j?.error as string) ?? errBody ?? res.statusText;
+      } catch {
+        msg = errBody || res.statusText;
+      }
+      throw new Error(`Aurora API ${res.status}: ${msg}`);
+    }
+    if (res.status === 204) return undefined as T;
+    return res.json() as Promise<T>;
+  }
+
+  /**
+   * Request using only Bearer token (no API key). Used for app-user session and signout.
+   */
+  private async requestWithBearer<T = unknown>(
+    method: string,
+    path: string,
+    accessToken: string,
+    opts?: { body?: unknown }
+  ): Promise<T> {
+    const base = await this.getV1Base();
+    const url = `${base}${path.startsWith("/") ? path : `/${path}`}`;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
     };
     const res = await fetch(url, {
       method,
@@ -497,5 +590,31 @@ export class AuroraClient {
           ...(headers?.path && { "X-Webhook-Path": headers.path }),
         },
       }),
+  };
+
+  /**
+   * Auth for app users (storefront customers). Sign in/up require API key; session/signout use Bearer only.
+   * List users is for tenant admins (API key). Not for studio users (members/vendors).
+   */
+  auth = {
+    /** Sign in app user (storefront). Returns session with access_token; use as Bearer for session/me. */
+    signin: (params: AuthSignInParams): Promise<AuthSessionResponse> =>
+      this.request<AuthSessionResponse>("POST", "/auth/signin", { body: params }),
+
+    /** Sign up app user (storefront). Returns session, or user + message when email confirmation is required. */
+    signup: (params: AuthSignUpParams): Promise<AuthSignUpResponse> =>
+      this.request<AuthSignUpResponse>("POST", "/auth/signup", { body: params }),
+
+    /** Validate Bearer token and return current app user. No API key; use access_token from signin/signup. */
+    session: (accessToken: string): Promise<AuthSessionUser> =>
+      this.requestWithBearer<AuthSessionUser>("GET", "/auth/session", accessToken),
+
+    /** Sign out app user. Client should discard stored tokens after calling. */
+    signout: (accessToken: string): Promise<{ success: boolean }> =>
+      this.requestWithBearer<{ success: boolean }>("POST", "/auth/signout", accessToken),
+
+    /** List app users (storefront customers) for this tenant. Requires API key. Paginated. */
+    users: (opts?: { limit?: number; offset?: number }): Promise<AuthUsersResponse> =>
+      this.request<AuthUsersResponse>("GET", "/auth/users", { query: opts as QueryParams }),
   };
 }
