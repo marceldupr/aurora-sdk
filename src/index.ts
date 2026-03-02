@@ -89,6 +89,15 @@ function notAvailable(feature: string): never {
   );
 }
 
+/**
+ * Build the Holmes script URL for embedding in storefronts.
+ * Use when you have apiBase and tenantSlug from env (e.g. in Next.js layout).
+ */
+export function getHolmesScriptUrl(apiBase: string, tenantSlug: string): string {
+  const base = apiBase.replace(/\/$/, "");
+  return `${base}/api/holmes/v1/script.js?site=${encodeURIComponent(tenantSlug)}`;
+}
+
 // --- Types for site/store/holmes APIs ---
 
 export interface SearchParams {
@@ -597,6 +606,17 @@ export class AuroraClient {
   };
 
   holmes = {
+    /**
+     * Returns the full URL for the Holmes embeddable script.
+     * Use this in your storefront layout instead of hardcoding the script URL.
+     * @param tenantSlug - Optional; if not provided, uses tenant from capabilities
+     */
+    scriptUrl: async (tenantSlug?: string): Promise<string> => {
+      const slug =
+        tenantSlug ?? (await this.capabilities()).tenantSlug;
+      const base = this.baseUrl.replace(/\/$/, "");
+      return `${base}/api/holmes/v1/script.js?site=${encodeURIComponent(slug)}`;
+    },
     infer: async (sessionId: string): Promise<HolmesInferResult> => {
       const caps = await this.capabilities();
       if (!caps.features.holmes) notAvailable("Holmes");

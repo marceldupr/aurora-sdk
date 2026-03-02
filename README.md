@@ -172,6 +172,19 @@ Create API keys in Aurora Studio → Settings → API Keys.
 | Method | Description |
 | ------ | ----------- |
 | `client.holmes.infer(sid)` | Mission inference |
+| `client.holmes.scriptUrl(tenantSlug?)` | Returns Holmes script URL for embedding (use in `<Script src={url} />`). |
+| `getHolmesScriptUrl(apiBase, tenantSlug)` | Standalone helper (no client). Use when building script URL at build/render time. |
+
+**Holmes directives:** The Holmes script manipulates the storefront UX in real time. Mark regions with `data-holmes` attributes; Holmes applies `.holmes-hidden` or `.holmes-highlight` based on inferred intent.
+
+| data-holmes | Directives | Effect |
+| ----------- | ---------- | ------ |
+| `checkout-extras` | `enable_fast_checkout` | Hidden |
+| `cross-sell` | `suppress_cross_sell`, `reduce_recommendations` | Hidden |
+| `recommendations` | `reduce_recommendations` / `expand_discovery` | Hidden or shown |
+| `payment` | `payment_pre_focus` | Highlighted |
+
+See [Aurora Studio docs — Holmes directives](https://github.com/marceldupr/aurora-studio/blob/main/docs/holmes-directives.md) for the full reference.
 
 ## Types
 
