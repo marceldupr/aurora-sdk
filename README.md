@@ -10,6 +10,7 @@ Node.js SDK for Aurora Studio. Connect custom front-ends and storefronts to your
 
 ## Changelog
 
+- **0.2.7** — **Holmes offers & chat:** `client.holmes.offers(sessionId)` to poll unconsumed offers for a session (e.g. custom offers from Control Dashboard). `client.holmes.chat.send(sessionId, message)` and `client.holmes.chat.list(sessionId)` for session chat.
 - **0.2.3** — **Auth/URL fixes:** `getV1Base()` only uses the OpenAPI spec server URL when it is absolute (fixes "Failed to parse URL" when the spec returned a relative URL). `request()` and `requestWithBearer()` throw a clear error if `baseUrl` is missing or relative so storefronts get a config error instead of a fetch parse error.
 - **0.2.2** — **Provision schema:** `client.provisionSchema(schema, { base?: "marketplace-base" | "base" })` for template-first provisioning. Call on first run so your app provisions its tables (and optional reports/workflows) via `POST /v1/provision-schema`. Use `base: "marketplace-base"` for multi-vendor workspaces; omit or `"base"` for non-marketplace. Idempotent.
 - **0.2.1** — Spec-driven SDK: optional `specUrl`, `getSpec()`, `request(method, path, opts)`. New methods from tenant OpenAPI: `search()`, `me()`, `events.emit()`, `webhooks.inbound()`. **Auth (app users):** `auth.signin()`, `auth.signup()`, `auth.session()`, `auth.signout()`, `auth.users()`. Tenant spec at `GET /v1/openapi.json` (with API key).
@@ -172,6 +173,9 @@ Create API keys in Aurora Studio → Settings → API Keys.
 | Method | Description |
 | ------ | ----------- |
 | `client.holmes.infer(sid)` | Mission inference |
+| `client.holmes.offers(sessionId)` | Poll unconsumed offers for a session (e.g. custom offers from Control Dashboard) |
+| `client.holmes.chat.send(sessionId, message)` | Send a chat message |
+| `client.holmes.chat.list(sessionId)` | List chat messages for a session |
 | `client.holmes.scriptUrl(tenantSlug?)` | Returns Holmes script URL for embedding (use in `<Script src={url} />`). |
 | `getHolmesScriptUrl(apiBase, tenantSlug)` | Standalone helper (no client). Use when building script URL at build/render time. |
 
