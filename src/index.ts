@@ -624,6 +624,32 @@ export class AuroraClient {
         query: { sid: sessionId },
       });
     },
+    /** Poll unconsumed offers for a session (e.g. custom offers sent from Control Dashboard) */
+    offers: async (sessionId: string): Promise<Array<{ id: string; offer_type: string; payload: unknown }>> => {
+      const caps = await this.capabilities();
+      if (!caps.features.holmes) notAvailable("Holmes");
+      return this.req("GET", this.tenantPath("/holmes/offers", caps.tenantSlug), {
+        query: { session_id: sessionId },
+      });
+    },
+    chat: {
+      /** Send a user message (storefront → Holmes) */
+      send: async (sessionId: string, content: string): Promise<{ id: string; role: string; content: string; created_at: string }> => {
+        const caps = await this.capabilities();
+        if (!caps.features.holmes) notAvailable("Holmes");
+        return this.req("POST", this.tenantPath("/holmes/chat", caps.tenantSlug), {
+          body: { session_id: sessionId, content },
+        });
+      },
+      /** List chat messages for a session */
+      list: async (sessionId: string): Promise<Array<{ id: string; role: string; content: string; created_at: string }>> => {
+        const caps = await this.capabilities();
+        if (!caps.features.holmes) notAvailable("Holmes");
+        return this.req("GET", this.tenantPath("/holmes/chat", caps.tenantSlug), {
+          query: { session_id: sessionId },
+        });
+      },
+    },
   };
 
   // --- Spec-driven methods (use tenant OpenAPI spec; paths like /search, /me, /events) ---
