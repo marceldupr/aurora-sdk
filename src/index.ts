@@ -169,6 +169,8 @@ export interface CreateCheckoutSessionParams {
   currency?: string;
   deliverySlotId?: string;
   metadata?: Record<string, string>;
+  /** Holmes session ID for session→order attribution (holdout, impact metrics) */
+  holmes_session_id?: string;
 }
 
 export interface CheckoutSessionResult {
