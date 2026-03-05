@@ -10,6 +10,8 @@ Node.js SDK for Aurora Studio. Connect custom front-ends and storefronts to your
 
 ## Changelog
 
+- **0.2.11** — Changelog update, re-release to trigger CI.
+- **0.2.10** — **Holmes session attribution:** `holmes_session_id` in `CreateCheckoutSessionParams` for session→order attribution (holdout, impact metrics). Pass when creating checkout sessions so orders can be attributed to Holmes sessions.
 - **0.2.7** — **Holmes offers & chat:** `client.holmes.offers(sessionId)` to poll unconsumed offers for a session (e.g. custom offers from Control Dashboard). `client.holmes.chat.send(sessionId, message)` and `client.holmes.chat.list(sessionId)` for session chat.
 - **0.2.3** — **Auth/URL fixes:** `getV1Base()` only uses the OpenAPI spec server URL when it is absolute (fixes "Failed to parse URL" when the spec returned a relative URL). `request()` and `requestWithBearer()` throw a clear error if `baseUrl` is missing or relative so storefronts get a config error instead of a fetch parse error.
 - **0.2.2** — **Provision schema:** `client.provisionSchema(schema, { base?: "marketplace-base" | "base" })` for template-first provisioning. Call on first run so your app provisions its tables (and optional reports/workflows) via `POST /v1/provision-schema`. Use `base: "marketplace-base"` for multi-vendor workspaces; omit or `"base"` for non-marketplace. Idempotent.
