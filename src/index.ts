@@ -207,6 +207,23 @@ export interface HolmesInferResult {
   };
 }
 
+export interface HomePersonalizationResult {
+  hero: {
+    title: string;
+    subtitle: string;
+    imageUrl: string | null;
+    ctaButtons: Array<{ label: string; url: string }>;
+  };
+  sections: Array<{
+    type: "meals" | "top_up" | "inspiration" | "promo";
+    title: string;
+    subtitle?: string;
+    products?: Array<{ id: string; name: string; price?: number; image_url?: string }>;
+    cards?: Array<{ title: string; imageUrl: string | null; linkUrl: string }>;
+    imageUrl?: string | null;
+  }>;
+}
+
 // --- Auth (app users: storefront sign in/up, session, list customers) ---
 
 export interface AuthSignInParams {
@@ -520,6 +537,11 @@ export class AuroraClient {
   );
 
   store = {
+    /** Holmes-driven home page personalization (hero + sections). Requires sid from Holmes script. */
+    homePersonalization: (sessionId: string, storeId?: string): Promise<HomePersonalizationResult> =>
+      this.req("GET", "/v1/store/home-personalization", {
+        query: { sid: sessionId, ...(storeId && { storeId }) },
+      }),
     /** Always available — returns enabled: false when no store template installed */
     config: () =>
       this.req<{
