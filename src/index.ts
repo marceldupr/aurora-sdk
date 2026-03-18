@@ -171,6 +171,8 @@ export interface CreateCheckoutSessionParams {
   metadata?: Record<string, string>;
   /** Holmes session ID for session→order attribution (holdout, impact metrics) */
   holmes_session_id?: string;
+  /** Timestamp (ms) when mission started (e.g. first add-to-cart) for time-to-completion metrics */
+  holmes_mission_start_timestamp?: number;
 }
 
 export interface CheckoutSessionResult {

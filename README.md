@@ -10,6 +10,7 @@ Node.js SDK for Aurora Studio. Connect custom front-ends and storefronts to your
 
 ## Changelog
 
+- **0.2.12** — **Time-to-completion:** `holmes_mission_start_timestamp` in `CreateCheckoutSessionParams`. Pass when creating checkout sessions; enables `time_to_completion_seconds` in `order.paid` and holmes_analytics. Use `window.holmes.getMissionStartTimestamp()` in storefronts.
 - **0.2.11** — Changelog update, re-release to trigger CI.
 - **0.2.10** — **Holmes session attribution:** `holmes_session_id` in `CreateCheckoutSessionParams` for session→order attribution (holdout, impact metrics). Pass when creating checkout sessions so orders can be attributed to Holmes sessions.
 - **0.2.7** — **Holmes offers & chat:** `client.holmes.offers(sessionId)` to poll unconsumed offers for a session (e.g. custom offers from Control Dashboard). `client.holmes.chat.send(sessionId, message)` and `client.holmes.chat.list(sessionId)` for session chat.
@@ -108,6 +109,8 @@ Create API keys in Aurora Studio → Settings → API Keys.
 | Method | Description |
 | ------ | ----------- |
 | `client.provisionSchema(schema, options?)` | Provision tables (and optional `reports`, `workflows`) from your template. Call on first run. Requires valid API key. `schema`: `{ tables: [...], reports?: [...], workflows?: [...] }`. `options.base`: `"marketplace-base"` for multi-vendor workspaces (vendors, products, vendor_products already provisioned by Studio); `"base"` or omit for non-marketplace. Idempotent: only adds missing tables/columns. |
+
+**Provision flows (Template Registry):** Studio onboarding uses `POST /api/tenants/:slug/provision` with `templateId` (e.g. `free-ecom`). Storefronts use `provisionSchema` on first run. Both can coexist—Studio may provision minimal tables; the storefront adds the full schema via `provisionSchema`.
 
 ### Capabilities (discovery)
 
