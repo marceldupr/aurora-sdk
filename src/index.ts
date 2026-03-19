@@ -640,6 +640,20 @@ export class AuroraClient {
         { query: { product_id: productId, limit: String(limit) } }
       );
     },
+    /** Holmes recent recipes from cache. Returns list ordered by most recently updated. */
+    holmesRecentRecipes: async (limit = 8): Promise<{ recipes: Array<{ id: string; slug: string; title: string; description: string | null }> }> => {
+      const caps = await this.capabilities();
+      if (!caps.features.store) notAvailable("Store");
+      try {
+        return await this.req(
+          "GET",
+          this.tenantPath("/store/holmes/recipes", caps.tenantSlug),
+          { query: { limit: String(limit) } }
+        );
+      } catch {
+        return { recipes: [] };
+      }
+    },
     /** Holmes cached recipe. Fetches via AI on cache miss. Returns null if not found. */
     holmesRecipe: async (slug: string): Promise<HolmesRecipe | null> => {
       const caps = await this.capabilities();
