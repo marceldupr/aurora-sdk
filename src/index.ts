@@ -236,6 +236,23 @@ export interface HolmesInferResult {
   };
 }
 
+export interface QuickAction {
+  label: string;
+  href: string;
+}
+
+export interface Mission {
+  label: string;
+  href: string;
+}
+
+export interface ShoppingListTemplate {
+  slug: string;
+  label: string;
+  description?: string;
+  searchTerms: string[];
+}
+
 export interface HomePersonalizationResult {
   mode?: "default" | "recipe_mission";
   recipeSlug?: string;
@@ -247,13 +264,21 @@ export interface HomePersonalizationResult {
     ctaButtons: Array<{ label: string; url: string }>;
   };
   sections: Array<{
-    type: "meals" | "top_up" | "inspiration" | "promo";
+    type: "meals" | "top_up" | "inspiration" | "promo" | "for_you" | "featured";
     title: string;
     subtitle?: string;
     products?: Array<{ id: string; name: string; price?: number; image_url?: string }>;
     cards?: Array<{ title: string; imageUrl: string | null; linkUrl: string }>;
     imageUrl?: string | null;
   }>;
+  /** Holmes-influenced when inference >= 0.6; else time-of-day defaults */
+  quickActions?: QuickAction[];
+  /** Holmes-influenced when inference >= 0.6; else generic missions */
+  missions?: Mission[];
+  /** Shopping list templates when inference matches */
+  shoppingListTemplates?: ShoppingListTemplate[];
+  /** Trust signal: "Because it's 6pm", "Based on your browsing", etc. */
+  trustSignal?: string;
 }
 
 // --- Auth (app users: storefront sign in/up, session, list customers) ---
