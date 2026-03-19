@@ -578,6 +578,32 @@ export class AuroraClient {
         query: { lat: String(lat), lng: String(lng) },
       });
     },
+    /** Holmes insights: products for a recipe (paella, curry, pasta, etc.). Uses holmes_insights.recipe_ideas search. */
+    holmesRecipeProducts: async (
+      recipe: string,
+      limit = 12
+    ): Promise<{ products: SearchHit[]; total: number; recipe: string }> => {
+      const caps = await this.capabilities();
+      if (!caps.features.store) notAvailable("Store");
+      return this.req(
+        "GET",
+        this.tenantPath("/store/holmes/recipe-products", caps.tenantSlug),
+        { query: { recipe, limit: String(limit) } }
+      );
+    },
+    /** Holmes insights: products that go well with a given product. Uses holmes_insights.goes_well_with. */
+    holmesGoesWith: async (
+      productId: string,
+      limit = 8
+    ): Promise<{ products: SearchHit[]; total: number }> => {
+      const caps = await this.capabilities();
+      if (!caps.features.store) notAvailable("Store");
+      return this.req(
+        "GET",
+        this.tenantPath("/store/holmes/goes-with", caps.tenantSlug),
+        { query: { product_id: productId, limit: String(limit) } }
+      );
+    },
     checkout: {
       sessions: {
         create: async (params: CreateCheckoutSessionParams): Promise<CheckoutSessionResult> => {
