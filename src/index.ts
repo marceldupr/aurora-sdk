@@ -253,6 +253,21 @@ export interface ShoppingListTemplate {
   searchTerms: string[];
 }
 
+export interface ActiveMissionUiHints {
+  emphasizeMissions?: boolean;
+  narrowCatalog?: boolean;
+  showMissionBar?: boolean;
+}
+
+export interface ActiveMission {
+  key: string;
+  label: string;
+  confidence: number;
+  band: "low" | "medium" | "high";
+  summary?: string;
+  uiHints?: ActiveMissionUiHints;
+}
+
 export interface HomePersonalizationResult {
   mode?: "default" | "recipe_mission";
   recipeSlug?: string;
@@ -279,6 +294,8 @@ export interface HomePersonalizationResult {
   shoppingListTemplates?: ShoppingListTemplate[];
   /** Trust signal: "Because it's 6pm", "Based on your browsing", etc. */
   trustSignal?: string;
+  /** Holmes-inferred mission state for global UI (mission bar, catalogue narrowing). Present when inference >= 0.6 or recipe viewed. */
+  activeMission?: ActiveMission;
 }
 
 // --- Auth (app users: storefront sign in/up, session, list customers) ---
