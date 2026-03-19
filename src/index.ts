@@ -1,7 +1,7 @@
 /**
  * Aurora Studio SDK - Discovery-based API for custom front-ends and storefronts.
  * Use with X-Api-Key authentication. Capabilities (store, site, holmes) are
- * discovered from the API — only enabled features expose methods.
+ * discovered from the API - only enabled features expose methods.
  *
  * When specUrl is provided (or default baseUrl + /v1/openapi.json), the client
  * fetches the tenant OpenAPI spec and can adjust itself: request() uses the
@@ -546,7 +546,7 @@ export class AuroraClient {
       this.req("GET", "/v1/store/home-personalization", {
         query: { sid: sessionId, ...(storeId && { storeId }) },
       }),
-    /** Always available — returns enabled: false when no store template installed */
+    /** Always available - returns enabled: false when no store template installed */
     config: () =>
       this.req<{
         enabled: boolean;

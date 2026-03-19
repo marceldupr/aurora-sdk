@@ -1,28 +1,28 @@
 # @aurora-studio/sdk
 
-Node.js SDK for Aurora Studio. Connect custom front-ends and storefronts to your Aurora data via the API. Features (store, site, holmes) are **discovered** from the API — only enabled capabilities expose methods.
+Node.js SDK for Aurora Studio. Connect custom front-ends and storefronts to your Aurora data via the API. Features (store, site, holmes) are **discovered** from the API - only enabled capabilities expose methods.
 
 **Spec-driven:** You can pass an OpenAPI spec URL (or use the default). The SDK fetches the tenant spec and uses it for the base URL and for generic methods (`request`, `search`, `me`, `events`, `webhooks`). Each tenant’s API surface is defined by their spec; the SDK adjusts accordingly.
 
 **Aurora** is an all-in-one, no-code platform for stores, marketplaces, CRMs, and more. Design your data, generate your app, automate workflows. Ship in hours, not months.
 
-[**Sign up for Aurora**](https://aurora.mandeville.digital) — currently in beta testing and free.
+[**Sign up for Aurora**](https://aurora.mandeville.digital) - currently in beta testing and free.
 
 ## Changelog
 
-- **0.2.12** — **Time-to-completion:** `holmes_mission_start_timestamp` in `CreateCheckoutSessionParams`. Pass when creating checkout sessions; enables `time_to_completion_seconds` in `order.paid` and holmes_analytics. Use `window.holmes.getMissionStartTimestamp()` in storefronts.
-- **0.2.11** — Changelog update, re-release to trigger CI.
-- **0.2.10** — **Holmes session attribution:** `holmes_session_id` in `CreateCheckoutSessionParams` for session→order attribution (holdout, impact metrics). Pass when creating checkout sessions so orders can be attributed to Holmes sessions.
-- **0.2.7** — **Holmes offers & chat:** `client.holmes.offers(sessionId)` to poll unconsumed offers for a session (e.g. custom offers from Control Dashboard). `client.holmes.chat.send(sessionId, message)` and `client.holmes.chat.list(sessionId)` for session chat.
-- **0.2.3** — **Auth/URL fixes:** `getV1Base()` only uses the OpenAPI spec server URL when it is absolute (fixes "Failed to parse URL" when the spec returned a relative URL). `request()` and `requestWithBearer()` throw a clear error if `baseUrl` is missing or relative so storefronts get a config error instead of a fetch parse error.
-- **0.2.2** — **Provision schema:** `client.provisionSchema(schema, { base?: "marketplace-base" | "base" })` for template-first provisioning. Call on first run so your app provisions its tables (and optional reports/workflows) via `POST /v1/provision-schema`. Use `base: "marketplace-base"` for multi-vendor workspaces; omit or `"base"` for non-marketplace. Idempotent.
-- **0.2.1** — Spec-driven SDK: optional `specUrl`, `getSpec()`, `request(method, path, opts)`. New methods from tenant OpenAPI: `search()`, `me()`, `events.emit()`, `webhooks.inbound()`. **Auth (app users):** `auth.signin()`, `auth.signup()`, `auth.session()`, `auth.signout()`, `auth.users()`. Tenant spec at `GET /v1/openapi.json` (with API key).
-- **0.1.5** — Discovery-based: `client.capabilities()` fetches enabled features from `/v1/capabilities`. Store, site, holmes methods only available when installed.
-- **0.1.4** — Site search, stores, delivery slots, checkout, Holmes infer
-- **0.1.3** — Add repository field for provenance
-- **0.1.2** — Trusted publishing (OIDC) configured
-- **0.1.1** — CI/CD setup
-- **0.1.0** — Initial release
+- **0.2.12** - **Time-to-completion:** `holmes_mission_start_timestamp` in `CreateCheckoutSessionParams`. Pass when creating checkout sessions; enables `time_to_completion_seconds` in `order.paid` and holmes_analytics. Use `window.holmes.getMissionStartTimestamp()` in storefronts.
+- **0.2.11** - Changelog update, re-release to trigger CI.
+- **0.2.10** - **Holmes session attribution:** `holmes_session_id` in `CreateCheckoutSessionParams` for session→order attribution (holdout, impact metrics). Pass when creating checkout sessions so orders can be attributed to Holmes sessions.
+- **0.2.7** - **Holmes offers & chat:** `client.holmes.offers(sessionId)` to poll unconsumed offers for a session (e.g. custom offers from Control Dashboard). `client.holmes.chat.send(sessionId, message)` and `client.holmes.chat.list(sessionId)` for session chat.
+- **0.2.3** - **Auth/URL fixes:** `getV1Base()` only uses the OpenAPI spec server URL when it is absolute (fixes "Failed to parse URL" when the spec returned a relative URL). `request()` and `requestWithBearer()` throw a clear error if `baseUrl` is missing or relative so storefronts get a config error instead of a fetch parse error.
+- **0.2.2** - **Provision schema:** `client.provisionSchema(schema, { base?: "marketplace-base" | "base" })` for template-first provisioning. Call on first run so your app provisions its tables (and optional reports/workflows) via `POST /v1/provision-schema`. Use `base: "marketplace-base"` for multi-vendor workspaces; omit or `"base"` for non-marketplace. Idempotent.
+- **0.2.1** - Spec-driven SDK: optional `specUrl`, `getSpec()`, `request(method, path, opts)`. New methods from tenant OpenAPI: `search()`, `me()`, `events.emit()`, `webhooks.inbound()`. **Auth (app users):** `auth.signin()`, `auth.signup()`, `auth.session()`, `auth.signout()`, `auth.users()`. Tenant spec at `GET /v1/openapi.json` (with API key).
+- **0.1.5** - Discovery-based: `client.capabilities()` fetches enabled features from `/v1/capabilities`. Store, site, holmes methods only available when installed.
+- **0.1.4** - Site search, stores, delivery slots, checkout, Holmes infer
+- **0.1.3** - Add repository field for provenance
+- **0.1.2** - Trusted publishing (OIDC) configured
+- **0.1.1** - CI/CD setup
+- **0.1.0** - Initial release
 
 ## Install
 
@@ -56,7 +56,7 @@ const config = await client.store.config();
 
 // Auth (app users: storefront sign in/up, session, list customers)
 const session = await client.auth.signin({ email: "u@example.com", password: "***" });
-// session.access_token — use as Bearer for client.auth.session() and client.me({ userId: session.user.id })
+// session.access_token - use as Bearer for client.auth.session() and client.me({ userId: session.user.id })
 const current = await client.auth.session(session.access_token);
 await client.auth.signout(session.access_token);
 const { data: appUsers } = await client.auth.users({ limit: 20, offset: 0 });
@@ -110,7 +110,7 @@ Create API keys in Aurora Studio → Settings → API Keys.
 | ------ | ----------- |
 | `client.provisionSchema(schema, options?)` | Provision tables (and optional `reports`, `workflows`) from your template. Call on first run. Requires valid API key. `schema`: `{ tables: [...], reports?: [...], workflows?: [...] }`. `options.base`: `"marketplace-base"` for multi-vendor workspaces (vendors, products, vendor_products already provisioned by Studio); `"base"` or omit for non-marketplace. Idempotent: only adds missing tables/columns. |
 
-**Provision flows (Template Registry):** Studio onboarding uses `POST /api/tenants/:slug/provision` with `templateId` (e.g. `free-ecom`). Storefronts use `provisionSchema` on first run. Both can coexist—Studio may provision minimal tables; the storefront adds the full schema via `provisionSchema`.
+**Provision flows (Template Registry):** Studio onboarding uses `POST /api/tenants/:slug/provision` with `templateId` (e.g. `free-ecom`). Storefronts use `provisionSchema` on first run. Both can coexist - Studio may provision minimal tables; the storefront adds the full schema via `provisionSchema`.
 
 ### Capabilities (discovery)
 
@@ -129,7 +129,7 @@ Create API keys in Aurora Studio → Settings → API Keys.
 | `client.events.emit(body)` | Raise a domain event. Uses `POST /events`. Body: `type`, `entityType`, `entityId?`, `payload?`, `dedupeKey?`. |
 | `client.webhooks.inbound(payload, headers?)` | Send payload to tenant inbound webhook. Uses `POST /webhooks/inbound`. Optional headers: `source`, `event`, `path`. |
 
-### Auth (app users — storefront customers)
+### Auth (app users - storefront customers)
 
 | Method | Description |
 | ------ | ----------- |
@@ -193,7 +193,7 @@ Create API keys in Aurora Studio → Settings → API Keys.
 | `recommendations` | `reduce_recommendations` / `expand_discovery` | Hidden or shown |
 | `payment` | `payment_pre_focus` | Highlighted |
 
-See [Aurora Studio docs — Holmes directives](https://github.com/marceldupr/aurora-studio/blob/main/docs/holmes-directives.md) for the full reference.
+See [Aurora Studio docs - Holmes directives](https://github.com/marceldupr/aurora-studio/blob/main/docs/holmes-directives.md) for the full reference.
 
 ## Types
 
