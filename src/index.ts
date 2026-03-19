@@ -665,6 +665,22 @@ export class AuroraClient {
         { query: { product_id: productId, limit: String(limit) } }
       );
     },
+    /** Holmes insights: similar products by type (what_it_is). For substitutions - same product type, not complementary. */
+    holmesSimilar: async (
+      productId: string,
+      limit = 8,
+      productName?: string
+    ): Promise<{ products: SearchHit[]; total: number }> => {
+      const caps = await this.capabilities();
+      if (!caps.features.store) notAvailable("Store");
+      const query: Record<string, string> = { product_id: productId, limit: String(limit) };
+      if (productName?.trim()) query.product_name = productName.trim();
+      return this.req(
+        "GET",
+        this.tenantPath("/store/holmes/similar", caps.tenantSlug),
+        { query }
+      );
+    },
     /** Holmes recent recipes from cache. Returns list ordered by most recently updated. */
     holmesRecentRecipes: async (limit = 8): Promise<{ recipes: Array<{ id: string; slug: string; title: string; description: string | null }> }> => {
       const caps = await this.capabilities();
