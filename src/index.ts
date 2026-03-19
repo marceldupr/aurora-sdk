@@ -212,6 +212,9 @@ export interface HolmesRecipe {
   updated_at: string;
 }
 
+/** Same structure as HolmesRecipe. Combo = recipe (ecom), project (hardware), trip (travel). */
+export type HolmesCombo = HolmesRecipe;
+
 export interface HolmesTidbit {
   id: string;
   category: string;
@@ -656,7 +659,20 @@ export class AuroraClient {
         query: { lat: String(lat), lng: String(lng) },
       });
     },
-    /** Holmes insights: products for a recipe (paella, curry, pasta, etc.). Uses holmes_insights.recipe_ideas search. */
+    /** Holmes insights: products for a combo (canonical). Combo = recipe (ecom), project (hardware), trip (travel). */
+    holmesComboProducts: async (
+      combo: string,
+      limit = 12
+    ): Promise<{ products: SearchHit[]; total: number; combo: string }> => {
+      const caps = await this.capabilities();
+      if (!caps.features.store) notAvailable("Store");
+      return this.req(
+        "GET",
+        this.tenantPath("/store/holmes/combo-products", caps.tenantSlug),
+        { query: { combo, limit: String(limit) } }
+      );
+    },
+    /** Holmes insights: products for a recipe (paella, curry, pasta). Alias for holmesComboProducts (ecom). */
     holmesRecipeProducts: async (
       recipe: string,
       limit = 12
@@ -698,7 +714,23 @@ export class AuroraClient {
         { query }
       );
     },
-    /** Holmes recent recipes from cache. Returns list ordered by most recently updated. */
+    /** Holmes recent combos from cache (canonical). Combo = recipe (ecom), project (hardware), trip (travel). */
+    holmesRecentCombos: async (
+      limit = 8
+    ): Promise<{ combos: Array<{ id: string; slug: string; title: string; description: string | null }> }> => {
+      const caps = await this.capabilities();
+      if (!caps.features.store) notAvailable("Store");
+      try {
+        return await this.req(
+          "GET",
+          this.tenantPath("/store/holmes/combos", caps.tenantSlug),
+          { query: { limit: String(limit) } }
+        );
+      } catch {
+        return { combos: [] };
+      }
+    },
+    /** Holmes recent recipes from cache. Alias for holmesRecentCombos (ecom). */
     holmesRecentRecipes: async (limit = 8): Promise<{ recipes: Array<{ id: string; slug: string; title: string; description: string | null }> }> => {
       const caps = await this.capabilities();
       if (!caps.features.store) notAvailable("Store");
@@ -712,7 +744,20 @@ export class AuroraClient {
         return { recipes: [] };
       }
     },
-    /** Holmes cached recipe. Fetches via AI on cache miss. Returns null if not found. */
+    /** Holmes cached combo. Fetches via AI on cache miss (canonical). Returns null if not found. */
+    holmesCombo: async (slug: string): Promise<HolmesCombo | null> => {
+      const caps = await this.capabilities();
+      if (!caps.features.store) notAvailable("Store");
+      try {
+        return await this.req<HolmesCombo>(
+          "GET",
+          this.tenantPath(`/store/holmes/combo/${encodeURIComponent(slug)}`, caps.tenantSlug)
+        );
+      } catch {
+        return null;
+      }
+    },
+    /** Holmes cached recipe. Alias for holmesCombo (ecom). */
     holmesRecipe: async (slug: string): Promise<HolmesRecipe | null> => {
       const caps = await this.capabilities();
       if (!caps.features.store) notAvailable("Store");
