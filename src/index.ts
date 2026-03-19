@@ -199,6 +199,31 @@ export interface AcmeCompleteResult {
   redirectUrl?: string;
 }
 
+export interface HolmesRecipe {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  ingredients: Array<{ name: string; quantity?: string; unit?: string }>;
+  instructions: string | null;
+  origin_tidbit: string | null;
+  source_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface HolmesTidbit {
+  id: string;
+  category: string;
+  content: string;
+  source_url?: string;
+}
+
+export interface HolmesContextualHintResult {
+  hint: string | null;
+  products: Array<{ id: string; name: string; price?: number; image?: string }>;
+}
+
 export interface HolmesInferResult {
   mission?: { summary: string; confidence: number };
   bundle?: {
@@ -212,6 +237,9 @@ export interface HolmesInferResult {
 }
 
 export interface HomePersonalizationResult {
+  mode?: "default" | "recipe_mission";
+  recipeSlug?: string;
+  recipeTitle?: string;
   hero: {
     title: string;
     subtitle: string;
@@ -542,10 +570,18 @@ export class AuroraClient {
 
   store = {
     /** Holmes-driven home page personalization (hero + sections). Requires sid from Holmes script. */
-    homePersonalization: (sessionId: string, storeId?: string): Promise<HomePersonalizationResult> =>
-      this.req("GET", "/v1/store/home-personalization", {
-        query: { sid: sessionId, ...(storeId && { storeId }) },
-      }),
+    homePersonalization: async (
+      sessionId: string,
+      storeId?: string
+    ): Promise<HomePersonalizationResult> => {
+      const caps = await this.capabilities();
+      if (!caps.features.store) notAvailable("Store");
+      return this.req(
+        "GET",
+        this.tenantPath("/store/home-personalization", caps.tenantSlug),
+        { query: { sid: sessionId, ...(storeId && { storeId }) } }
+      );
+    },
     /** Always available - returns enabled: false when no store template installed */
     config: () =>
       this.req<{
@@ -603,6 +639,72 @@ export class AuroraClient {
         this.tenantPath("/store/holmes/goes-with", caps.tenantSlug),
         { query: { product_id: productId, limit: String(limit) } }
       );
+    },
+    /** Holmes cached recipe. Fetches via AI on cache miss. Returns null if not found. */
+    holmesRecipe: async (slug: string): Promise<HolmesRecipe | null> => {
+      const caps = await this.capabilities();
+      if (!caps.features.store) notAvailable("Store");
+      try {
+        return await this.req<HolmesRecipe>(
+          "GET",
+          this.tenantPath(`/store/holmes/recipe/${encodeURIComponent(slug)}`, caps.tenantSlug)
+        );
+      } catch {
+        return null;
+      }
+    },
+    /** Holmes tidbits for entity (recipe, ingredient, product). */
+    holmesTidbits: async (
+      entity: string,
+      entityType = "recipe"
+    ): Promise<{ tidbits: HolmesTidbit[] }> => {
+      const caps = await this.capabilities();
+      if (!caps.features.store) notAvailable("Store");
+      try {
+        return await this.req(
+          "GET",
+          this.tenantPath("/store/holmes/tidbits", caps.tenantSlug),
+          { query: { entity, entity_type: entityType } }
+        );
+      } catch {
+        return { tidbits: [] };
+      }
+    },
+    /** Holmes contextual hint - "paying attention" suggestion based on cart and mission. */
+    holmesContextualHint: async (params: {
+      sid?: string;
+      cartNames?: string[];
+      currentProduct?: string;
+    }): Promise<HolmesContextualHintResult> => {
+      const caps = await this.capabilities();
+      if (!caps.features.store) notAvailable("Store");
+      const query: QueryParams = {};
+      if (params.sid) query.sid = params.sid;
+      if (params.cartNames?.length) query.cart_names = params.cartNames.join(",");
+      if (params.currentProduct) query.current_product = params.currentProduct;
+      try {
+        return await this.req(
+          "GET",
+          this.tenantPath("/store/holmes/contextual-hint", caps.tenantSlug),
+          { query }
+        );
+      } catch {
+        return { hint: null, products: [] };
+      }
+    },
+    /** Holmes-driven category order for home page. Returns empty when sid missing or no suggestions. */
+    categorySuggestions: async (sid: string): Promise<{ suggested: string[] }> => {
+      const caps = await this.capabilities();
+      if (!caps.features.store) notAvailable("Store");
+      try {
+        return await this.req(
+          "GET",
+          this.tenantPath("/store/category-suggestions", caps.tenantSlug),
+          { query: { sid } }
+        );
+      } catch {
+        return { suggested: [] };
+      }
     },
     checkout: {
       sessions: {

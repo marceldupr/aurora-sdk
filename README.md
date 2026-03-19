@@ -10,6 +10,7 @@ Node.js SDK for Aurora Studio. Connect custom front-ends and storefronts to your
 
 ## Changelog
 
+- **0.2.16** - **Holmes Store API:** New SDK methods for storefronts: `store.holmesRecipe(slug)` (cached recipe, AI on miss), `store.holmesTidbits(entity, entityType)`, `store.holmesContextualHint(params)` ("paying attention" hints), `store.categorySuggestions(sid)` (Holmes-ordered categories). `store.homePersonalization` now uses tenant path for consistency. New types: `HolmesRecipe`, `HolmesTidbit`, `HolmesContextualHintResult`.
 - **0.2.12** - **Time-to-completion:** `holmes_mission_start_timestamp` in `CreateCheckoutSessionParams`. Pass when creating checkout sessions; enables `time_to_completion_seconds` in `order.paid` and holmes_analytics. Use `window.holmes.getMissionStartTimestamp()` in storefronts.
 - **0.2.11** - Changelog update, re-release to trigger CI.
 - **0.2.10** - **Holmes session attribution:** `holmes_session_id` in `CreateCheckoutSessionParams` for session→order attribution (holdout, impact metrics). Pass when creating checkout sessions so orders can be attributed to Holmes sessions.
@@ -168,6 +169,14 @@ Create API keys in Aurora Studio → Settings → API Keys.
 
 | Method | Description |
 | ------ | ----------- |
+| `client.store.config()` | Store config (enabled, branding, etc.) |
+| `client.store.homePersonalization(sessionId, storeId?)` | Holmes-driven home page content (hero + sections, mode: recipe_mission when applicable) |
+| `client.store.holmesRecipe(slug)` | Cached recipe; fetches via AI on cache miss. Returns `HolmesRecipe \| null`. |
+| `client.store.holmesTidbits(entity, entityType?)` | Tidbits for recipes, ingredients, products |
+| `client.store.holmesContextualHint({ sid, cartNames, currentProduct })` | "Paying attention" hint + product links based on cart and mission |
+| `client.store.categorySuggestions(sid)` | Holmes-driven category order for home page |
+| `client.store.holmesRecipeProducts(recipe, limit?)` | Products for a recipe (paella, curry, pasta) |
+| `client.store.holmesGoesWith(productId, limit?)` | Products that go well with a given product |
 | `client.store.deliverySlots(lat, lng)` | Delivery slots for a location |
 | `client.store.checkout.sessions.create(params)` | Create checkout session (Stripe or ACME) |
 | `client.store.checkout.acme.get(sessionId)` | Get ACME session |
@@ -200,6 +209,7 @@ See [Aurora Studio docs - Holmes directives](https://github.com/marceldupr/auror
 The package exports TypeScript types for responses and params, including:
 
 - `AuroraClientOptions`, `OpenAPISpec`, `Capabilities`
+- `HolmesRecipe`, `HolmesTidbit`, `HolmesContextualHintResult`, `HomePersonalizationResult`
 - `SearchParams`, `SearchResult`, `SearchHit`
 - `DeliverySlot`, `StoreItem`
 - `CheckoutLineItem`, `CreateCheckoutSessionParams`, `CheckoutSessionResult`
