@@ -10,6 +10,7 @@ Node.js SDK for Aurora Studio. Connect custom front-ends and storefronts to your
 
 ## Changelog
 
+- **0.2.22** - **Holmes cart bundles:** `store.holmesContextualHint` accepts optional `cartIds` for combo fingerprinting. `HolmesContextualHintResult` adds optional `hasCombo` and `comboTitle`. New `store.holmesCombosForCart({ cartIds, cartNames?, limit? })` and `store.holmesSelectCombo({ sid, slug, title? })` for mission-aware bundle pickers.
 - **0.2.21** - **Generic Holmes combo API:** New canonical methods for all domains (ecom, travel, hardware): `store.holmesComboProducts(combo, limit)`, `store.holmesRecentCombos(limit)`, `store.holmesCombo(slug)`. `HolmesCombo` type exported. `holmesRecipeProducts`, `holmesRecentRecipes`, `holmesRecipe` remain as ecom aliases.
 - **0.2.16** - **Holmes Store API:** New SDK methods for storefronts: `store.holmesRecipe(slug)` (cached recipe, AI on miss), `store.holmesTidbits(entity, entityType)`, `store.holmesContextualHint(params)` ("paying attention" hints), `store.categorySuggestions(sid)` (Holmes-ordered categories). `store.homePersonalization` now uses tenant path for consistency. New types: `HolmesRecipe`, `HolmesTidbit`, `HolmesContextualHintResult`.
 - **0.2.12** - **Time-to-completion:** `holmes_mission_start_timestamp` in `CreateCheckoutSessionParams`. Pass when creating checkout sessions; enables `time_to_completion_seconds` in `order.paid` and holmes_analytics. Use `window.holmes.getMissionStartTimestamp()` in storefronts.
@@ -179,7 +180,9 @@ Create API keys in Aurora Studio → Settings → API Keys.
 | `client.store.holmesCombo(slug)` | Cached combo; fetches via AI on cache miss (canonical). Returns `HolmesCombo \| null`. |
 | `client.store.holmesRecipe(slug)` | Cached recipe; fetches via AI on cache miss (ecom alias for `holmesCombo`). Returns `HolmesRecipe \| null`. |
 | `client.store.holmesTidbits(entity, entityType?)` | Tidbits for recipes, ingredients, products |
-| `client.store.holmesContextualHint({ sid, cartNames, currentProduct })` | "Paying attention" hint + product links based on cart and mission |
+| `client.store.holmesContextualHint({ sid, cartNames, cartIds?, currentProduct })` | "Paying attention" hint + product links; optional `hasCombo` / `comboTitle` when a cart bundle exists |
+| `client.store.holmesCombosForCart({ cartIds, cartNames?, limit? })` | Recipe/bundle options for the cart (2+ items) |
+| `client.store.holmesSelectCombo({ sid, slug, title? })` | Persist user-selected combo for the Holmes session |
 | `client.store.categorySuggestions(sid)` | Holmes-driven category order for home page |
 | `client.store.holmesGoesWith(productId, limit?)` | Products that go well with a given product |
 | `client.store.deliverySlots(lat, lng)` | Delivery slots for a location |

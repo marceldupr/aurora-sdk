@@ -225,6 +225,9 @@ export interface HolmesTidbit {
 export interface HolmesContextualHintResult {
   hint: string | null;
   products: Array<{ id: string; name: string; price?: number; image?: string }>;
+  /** When true, Holmes has a recipe/combo for the cart – show "We have recipes" banner */
+  hasCombo?: boolean;
+  comboTitle?: string;
 }
 
 export interface HolmesInferResult {
@@ -791,6 +794,7 @@ export class AuroraClient {
     holmesContextualHint: async (params: {
       sid?: string;
       cartNames?: string[];
+      cartIds?: string[];
       currentProduct?: string;
     }): Promise<HolmesContextualHintResult> => {
       const caps = await this.capabilities();
@@ -798,6 +802,7 @@ export class AuroraClient {
       const query: QueryParams = {};
       if (params.sid) query.sid = params.sid;
       if (params.cartNames?.length) query.cart_names = params.cartNames.join(",");
+      if (params.cartIds?.length) query.cart_ids = params.cartIds.join(",");
       if (params.currentProduct) query.current_product = params.currentProduct;
       try {
         return await this.req(
@@ -808,6 +813,35 @@ export class AuroraClient {
       } catch {
         return { hint: null, products: [] };
       }
+    },
+    /** Holmes recipe options for cart. Returns 1–3 combos when cart has 2+ items. */
+    holmesCombosForCart: async (params: {
+      cartIds: string[];
+      cartNames?: string[];
+      limit?: number;
+    }): Promise<{ combos: Array<{ slug: string; title: string; productImageUrls?: string[] }> }> => {
+      const caps = await this.capabilities();
+      if (!caps.features.store) notAvailable("Store");
+      const query: QueryParams = { cart_ids: params.cartIds.join(",") };
+      if (params.cartNames?.length) query.cart_names = params.cartNames.join(",");
+      if (params.limit) query.limit = params.limit;
+      try {
+        return await this.req(
+          "GET",
+          this.tenantPath("/store/holmes/combos-for-cart", caps.tenantSlug),
+          { query }
+        );
+      } catch {
+        return { combos: [] };
+      }
+    },
+    /** Set selected combo for session (from recipe picker). */
+    holmesSelectCombo: async (params: { sid: string; slug: string; title?: string }): Promise<{ ok: boolean }> => {
+      const caps = await this.capabilities();
+      if (!caps.features.store) notAvailable("Store");
+      return this.req("POST", this.tenantPath("/store/holmes/select-combo", caps.tenantSlug), {
+        body: params,
+      });
     },
     /** Holmes-driven category order for home page. Returns empty when sid missing or no suggestions. */
     categorySuggestions: async (sid: string): Promise<{ suggested: string[] }> => {
