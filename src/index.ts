@@ -734,15 +734,20 @@ export class AuroraClient {
         return { combos: [] };
       }
     },
-    /** Holmes recent recipes from cache. Alias for holmesRecentCombos (ecom). */
-    holmesRecentRecipes: async (limit = 8): Promise<{ recipes: Array<{ id: string; slug: string; title: string; description: string | null }> }> => {
+    /** Holmes recent recipes from cache. Alias for holmesRecentCombos (ecom). Optional timeOfDay filters by morning/afternoon/evening. */
+    holmesRecentRecipes: async (
+      limit = 8,
+      timeOfDay?: "morning" | "afternoon" | "evening"
+    ): Promise<{ recipes: Array<{ id: string; slug: string; title: string; description: string | null }> }> => {
       const caps = await this.capabilities();
       if (!caps.features.store) notAvailable("Store");
       try {
+        const query: Record<string, string> = { limit: String(limit) };
+        if (timeOfDay) query.time_of_day = timeOfDay;
         return await this.req(
           "GET",
           this.tenantPath("/store/holmes/recipes", caps.tenantSlug),
-          { query: { limit: String(limit) } }
+          { query }
         );
       } catch {
         return { recipes: [] };
