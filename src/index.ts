@@ -275,6 +275,7 @@ export interface ActiveMission {
 }
 
 export interface HomePersonalizationResult {
+  timeOfDay?: "morning" | "afternoon" | "evening";
   mode?: "default" | "recipe_mission";
   recipeSlug?: string;
   recipeTitle?: string;
