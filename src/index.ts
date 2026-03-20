@@ -108,6 +108,8 @@ export interface SearchParams {
   category?: string;
   sort?: string;
   order?: "asc" | "desc";
+  /** Dietary exclusion keys: meat, animal_products, dairy, alcohol. Excluded products are filtered out. */
+  excludeDietary?: string[];
 }
 
 export interface SearchHit {
@@ -679,39 +681,53 @@ export class AuroraClient {
     /** Holmes insights: products for a recipe (paella, curry, pasta). Alias for holmesComboProducts (ecom). */
     holmesRecipeProducts: async (
       recipe: string,
-      limit = 12
+      limit = 12,
+      opts?: { excludeDietary?: string[] }
     ): Promise<{ products: SearchHit[]; total: number; recipe: string }> => {
       const caps = await this.capabilities();
       if (!caps.features.store) notAvailable("Store");
+      const query: Record<string, string> = { recipe, limit: String(limit) };
+      if (opts?.excludeDietary?.length) {
+        query.excludeDietary = opts.excludeDietary.join(",");
+      }
       return this.req(
         "GET",
         this.tenantPath("/store/holmes/recipe-products", caps.tenantSlug),
-        { query: { recipe, limit: String(limit) } }
+        { query }
       );
     },
     /** Holmes insights: products that go well with a given product. Uses holmes_insights.goes_well_with. */
     holmesGoesWith: async (
       productId: string,
-      limit = 8
+      limit = 8,
+      opts?: { excludeDietary?: string[] }
     ): Promise<{ products: SearchHit[]; total: number }> => {
       const caps = await this.capabilities();
       if (!caps.features.store) notAvailable("Store");
+      const query: Record<string, string> = { product_id: productId, limit: String(limit) };
+      if (opts?.excludeDietary?.length) {
+        query.excludeDietary = opts.excludeDietary.join(",");
+      }
       return this.req(
         "GET",
         this.tenantPath("/store/holmes/goes-with", caps.tenantSlug),
-        { query: { product_id: productId, limit: String(limit) } }
+        { query }
       );
     },
     /** Holmes insights: similar products by type (what_it_is). For substitutions - same product type, not complementary. */
     holmesSimilar: async (
       productId: string,
       limit = 8,
-      productName?: string
+      productName?: string,
+      opts?: { excludeDietary?: string[] }
     ): Promise<{ products: SearchHit[]; total: number }> => {
       const caps = await this.capabilities();
       if (!caps.features.store) notAvailable("Store");
       const query: Record<string, string> = { product_id: productId, limit: String(limit) };
       if (productName?.trim()) query.product_name = productName.trim();
+      if (opts?.excludeDietary?.length) {
+        query.excludeDietary = opts.excludeDietary.join(",");
+      }
       return this.req(
         "GET",
         this.tenantPath("/store/holmes/similar", caps.tenantSlug),
