@@ -623,14 +623,18 @@ export class AuroraClient {
     /** Holmes-driven home page personalization (hero + sections). Requires sid from Holmes script. */
     homePersonalization: async (
       sessionId: string,
-      storeId?: string
+      storeId?: string,
+      opts?: { excludeDietary?: string[] }
     ): Promise<HomePersonalizationResult> => {
       const caps = await this.capabilities();
       if (!caps.features.store) notAvailable("Store");
+      const query: Record<string, string> = { sid: sessionId };
+      if (storeId) query.storeId = storeId;
+      if (opts?.excludeDietary?.length) query.excludeDietary = opts.excludeDietary.join(",");
       return this.req(
         "GET",
         this.tenantPath("/store/home-personalization", caps.tenantSlug),
-        { query: { sid: sessionId, ...(storeId && { storeId }) } }
+        { query }
       );
     },
     /** Always available - returns enabled: false when no store template installed */
@@ -750,16 +754,18 @@ export class AuroraClient {
         return { combos: [] };
       }
     },
-    /** Holmes recent recipes from cache. Alias for holmesRecentCombos (ecom). Optional timeOfDay filters by morning/afternoon/evening. */
+    /** Holmes recent recipes from cache. Alias for holmesRecentCombos (ecom). Optional timeOfDay filters by morning/afternoon/evening. excludeDietary filters out recipes whose ingredients match excluded types. */
     holmesRecentRecipes: async (
       limit = 8,
-      timeOfDay?: "morning" | "afternoon" | "evening"
+      timeOfDay?: "morning" | "afternoon" | "evening",
+      opts?: { excludeDietary?: string[] }
     ): Promise<{ recipes: Array<{ id: string; slug: string; title: string; description: string | null }> }> => {
       const caps = await this.capabilities();
       if (!caps.features.store) notAvailable("Store");
       try {
         const query: Record<string, string> = { limit: String(limit) };
         if (timeOfDay) query.time_of_day = timeOfDay;
+        if (opts?.excludeDietary?.length) query.excludeDietary = opts.excludeDietary.join(",");
         return await this.req(
           "GET",
           this.tenantPath("/store/holmes/recipes", caps.tenantSlug),
