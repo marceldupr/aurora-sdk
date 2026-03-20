@@ -12,7 +12,7 @@ Node.js SDK for Aurora Studio. Connect custom front-ends and storefronts to your
 
 - **0.2.22** - **Holmes cart bundles:** `store.holmesContextualHint` accepts optional `cartIds` for combo fingerprinting. `HolmesContextualHintResult` adds optional `hasCombo` and `comboTitle`. New `store.holmesCombosForCart({ cartIds, cartNames?, limit? })` and `store.holmesSelectCombo({ sid, slug, title? })` for mission-aware bundle pickers.
 - **0.2.21** - **Generic Holmes combo API:** New canonical methods for all domains (ecom, travel, hardware): `store.holmesComboProducts(combo, limit)`, `store.holmesRecentCombos(limit)`, `store.holmesCombo(slug)`. `HolmesCombo` type exported. `holmesRecipeProducts`, `holmesRecentRecipes`, `holmesRecipe` remain as ecom aliases.
-- **0.2.16** - **Holmes Store API:** New SDK methods for storefronts: `store.holmesRecipe(slug)` (cached recipe, AI on miss), `store.holmesTidbits(entity, entityType)`, `store.holmesContextualHint(params)` ("paying attention" hints), `store.categorySuggestions(sid)` (Holmes-ordered categories). `store.homePersonalization` now uses tenant path for consistency. New types: `HolmesRecipe`, `HolmesTidbit`, `HolmesContextualHintResult`.
+- **0.2.16** - **Holmes Store API:** New SDK methods for storefronts: `store.holmesRecipe(slug)` (cached recipe), `store.holmesTidbits(entity, entityType)`, `store.holmesContextualHint(params)` ("paying attention" hints), `store.categorySuggestions(sid)` (Holmes-ordered categories). `store.homePersonalization` now uses tenant path for consistency. New types: `HolmesRecipe`, `HolmesTidbit`, `HolmesContextualHintResult`.
 - **0.2.12** - **Time-to-completion:** `holmes_mission_start_timestamp` in `CreateCheckoutSessionParams`. Pass when creating checkout sessions; enables `time_to_completion_seconds` in `order.paid` and holmes_analytics. Use `window.holmes.getMissionStartTimestamp()` in storefronts.
 - **0.2.11** - Changelog update, re-release to trigger CI.
 - **0.2.10** - **Holmes session attribution:** `holmes_session_id` in `CreateCheckoutSessionParams` for session→order attribution (holdout, impact metrics). Pass when creating checkout sessions so orders can be attributed to Holmes sessions.
@@ -177,8 +177,8 @@ Create API keys in Aurora Studio → Settings → API Keys.
 | `client.store.holmesRecipeProducts(recipe, limit?)` | Products for a recipe (ecom alias for `holmesComboProducts`). |
 | `client.store.holmesRecentCombos(limit?)` | Recent combos from cache (canonical). |
 | `client.store.holmesRecentRecipes(limit?)` | Recent recipes from cache (ecom alias for `holmesRecentCombos`). |
-| `client.store.holmesCombo(slug)` | Cached combo; fetches via AI on cache miss (canonical). Returns `HolmesCombo \| null`. |
-| `client.store.holmesRecipe(slug)` | Cached recipe; fetches via AI on cache miss (ecom alias for `holmesCombo`). Returns `HolmesRecipe \| null`. |
+| `client.store.holmesCombo(slug)` | Cached combo from catalog or pre-seeded content (canonical). Returns `HolmesCombo \| null`. |
+| `client.store.holmesRecipe(slug)` | Cached recipe from catalog or pre-seeded content (ecom alias for `holmesCombo`). Returns `HolmesRecipe \| null`. |
 | `client.store.holmesTidbits(entity, entityType?)` | Tidbits for recipes, ingredients, products |
 | `client.store.holmesContextualHint({ sid, cartNames, cartIds?, currentProduct })` | "Paying attention" hint + product links; optional `hasCombo` / `comboTitle` when a cart bundle exists |
 | `client.store.holmesCombosForCart({ cartIds, cartNames?, limit? })` | Recipe/bundle options for the cart (2+ items) |
@@ -201,7 +201,7 @@ Create API keys in Aurora Studio → Settings → API Keys.
 | `client.holmes.scriptUrl(tenantSlug?)` | Returns Holmes script URL for embedding (use in `<Script src={url} />`). |
 | `getHolmesScriptUrl(apiBase, tenantSlug)` | Standalone helper (no client). Use when building script URL at build/render time. |
 
-**Holmes directives:** The Holmes script manipulates the storefront UX in real time. Mark regions with `data-holmes` attributes; Holmes applies `.holmes-hidden` or `.holmes-highlight` based on inferred intent.
+**Holmes** uses deterministic and heuristic algorithms with configurable business rules. It does not use generative AI. The Holmes script manipulates the storefront UX in real time. Mark regions with `data-holmes` attributes; Holmes applies `.holmes-hidden` or `.holmes-highlight` based on inferred intent.
 
 | data-holmes | Directives | Effect |
 | ----------- | ---------- | ------ |
